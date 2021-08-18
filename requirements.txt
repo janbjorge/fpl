@@ -1,0 +1,6 @@
+ipython
+matplotlib
+notebook
+numpy
+pandas
+requests
