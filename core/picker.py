@@ -1,6 +1,7 @@
 
 from typing import (
     List,
+    Tuple,
 )
 from itertools import (
     combinations,
@@ -151,6 +152,19 @@ def lineup(
                                         functions.sprint(g3)
 
     return best_lineup
+
+
+def transfers(
+    pool: List[structures.Player],
+    team: List[structures.Player],
+    max_transfers: int,
+) -> Tuple[List[structures.Player], List[structures.Player]]:
+
+    # Correct?
+    candidates = set(pool) - set(team)
+
+
+
 
 
 # base = (
