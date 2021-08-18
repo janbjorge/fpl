@@ -116,8 +116,16 @@ def lineup(
             and functions.lineup_score(c) > score_lower
             and constraints.team_constraint(c))
 
-    total = len(gkp_combinations) * len(def_combinations) * len(mid_combinations) * len(fwd_combinations)
-    step = len(mid_combinations) * len(fwd_combinations)
+    total = (
+        len(gkp_combinations) *
+        len(def_combinations) *
+        len(mid_combinations) *
+        len(fwd_combinations)
+    )
+    step = (
+        len(mid_combinations) *
+        len(fwd_combinations)
+    )
 
     with tqdm(
         total=total,
