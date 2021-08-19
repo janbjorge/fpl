@@ -14,8 +14,17 @@ from tqdm import (
 from core import (
     constraints,
     functions,
+    gather,
     structures,
 )
+
+
+class FPLException(BaseException):
+    pass
+
+
+class InvalidLineup(FPLException):
+    pass
 
 
 def lineup(
@@ -130,7 +139,7 @@ def lineup(
 
     with tqdm(
         total=total,
-        bar_format='{desc:<5.5}{percentage:3.0f}%|{bar:20}{r_bar}',
+        bar_format='{percentage:3.0f}%|{bar:20}{r_bar}',
         unit_scale=True,
         unit_divisor=2**10,
     ) as bar:
@@ -155,23 +164,92 @@ def lineup(
 
 
 def transfers(
-    pool: List[structures.Player],
+    candidates: List[structures.Player],
     team: List[structures.Player],
     max_transfers: int,
+    budget=1_000,
 ) -> Tuple[List[structures.Player], List[structures.Player]]:
 
-    # Correct?
-    candidates = set(pool) - set(team)
+    def _transfers(best, n_transfers):
+
+        if n_transfers > max_transfers:
+            raise InvalidLineup
+
+        for candidate in candidates:
+            for idx, tp in enumerate(team):
+
+                if candidate.position != tp.position:
+                    continue
+
+                # Swap old and new player.
+                tmp = list(team)
+                tmp[idx] = candidate
+
+                try:
+                    new = _transfers(best, n_transfers=n_transfers + 1)
+                except InvalidLineup:
+                    continue
+
+                n, s = functions.lineup_score(new), functions.lineup_score(best)
+                print(s, n, s/n, n_transfers)
+                if functions.lineup_score(new) >= functions.lineup_score(best):
+                    best = list(new)
+
+        return best
+
+    return _transfers(team, 0)
+
+"""
+score: 4.09049, cost: 999, xP(TP): 128
+GKP(n=2, score=0.50031, cost=95)
+ Player(name='Schmeichel', team='LEI', position='GKP', cost=50, score=0.26354, points=9)
+ Player(name='Sánchez', team='BHA', position='GKP', cost=45, score=0.23677, points=2)
+DEF(n=5, score=1.28459, cost=276)
+ Player(name='Shaw', team='MUN', position='DEF', cost=55, score=0.27594, points=1)
+ Player(name='Alexander-Arnold', team='LIV', position='DEF', cost=75, score=0.27272, points=6)
+ Player(name='Alonso', team='CHE', position='DEF', cost=56, score=0.25851, points=15)
+ Player(name='Pinnock', team='BRE', position='DEF', cost=45, score=0.24075, points=11)
+ Player(name='Ayling', team='LEE', position='DEF', cost=45, score=0.23667, points=6)
+MID(n=5, score=1.47335, cost=407)
+ Player(name='Fernandes', team='MUN', position='MID', cost=121, score=0.39071, points=20)
+ Player(name='Salah', team='LIV', position='MID', cost=125, score=0.37309, points=17)
+ Player(name='Benrahma', team='WHU', position='MID', cost=61, score=0.25639, points=12)
+ Player(name='Dallas', team='LEE', position='MID', cost=55, score=0.23555, points=5)
+ Player(name='Bissouma', team='BHA', position='MID', cost=45, score=0.21761, points=2)
+FWD(n=3, score=0.83224, cost=221)
+ Player(name='Antonio', team='WHU', position='FWD', cost=76, score=0.29929, points=13)
+ Player(name='Ings', team='AVL', position='FWD', cost=80, score=0.28727, points=7)
+ Player(name='Toney', team='BRE', position='FWD', cost=65, score=0.24568, points=2)
+"""
 
 
+def test():
+    old = gather.team()
+    pool = functions.top_n_score_by_cost_by_positions(gather.player_pool())
+    new = transfers(
+        pool,
+        old,
+        max_transfers=2,
+    )
+
+    # print('old')
+    # functions.sprint(old)
+
+    # print('new')
+    # functions.sprint(new)
+
+    print('transfers')
+    functions.tprint(old, new)
+
+    # functions.sprint(curernt)
+    # print('----')
+    # functions.sprint(t)
 
 
-
-# base = (
-#     (),
-#     ('Alexander-Arnold', 'Shaw', 'Dias'),
-#     ('Salah',),
-#     (),
-# )
-
-# l = lineup(base=base)
+if __name__ == "__main__":
+    # functions.sprint(lineup(
+    #     pool=functions.top_n_score_by_cost_by_positions(gather.player_pool()),
+    #     buget=1_000,
+    #     base=((),('Alexander-Arnold', 'Shaw'), ('Salah',), (),),
+    # ))
+    test()

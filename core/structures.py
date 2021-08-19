@@ -2,7 +2,9 @@
 from typing import (
     List,
 )
-from dataclasses import dataclass
+from dataclasses import (
+    dataclass,
+)
 
 
 @dataclass(frozen=True, eq=True)

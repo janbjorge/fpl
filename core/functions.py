@@ -70,3 +70,11 @@ def lprint(lineup: List[structures.Player]):
 def sprint(pool):
     print(f'score: {lineup_score(pool)}, cost: {lineup_cost(pool)}, xP(TP): {xPtt(pool)}')
     lprint(pool)
+
+
+def tprint(old, new):
+    for _in, _out in zip(
+        set(new).difference(old),
+        set(old).difference(new),
+    ):
+        print(f'{_out} ->> {_in}')

@@ -1,9 +1,10 @@
 
 from statistics import mean
 from typing import List
+import contextlib
 import functools
+import os
 
-import numpy as np
 import pandas as pd
 import requests
 
@@ -81,3 +82,61 @@ def player_pool(acc=mean) -> List[structures.Player]:
         )
         for _, row in pool_pd.iterrows()
     ]
+
+
+@functools.lru_cache()
+def me(
+    login='https://users.premierleague.com/accounts/login/',
+    redirect_uri='https://fantasy.premierleague.com/a/login',
+    app='plfpl-web',
+    my_team='https://fantasy.premierleague.com/api/my-team/{}/',
+) -> List[structures.Player]:
+
+    with requests.session() as s:
+        s.post(login, data={
+            'password': os.environ['FPL_PASSWORD'],
+            'login': os.environ['FPL_EMAIL'],
+            'redirect_uri': redirect_uri,
+            'app': app,
+        })
+        return s.get(my_team.format(os.environ["FPL_TEAM_ID"])).json()
+
+
+def team():
+
+    def element(_id, key):
+        for element in bootstrap_static()['elements']:
+            if element['id'] == _id:
+                return element[key]
+
+    picks = pd.DataFrame.from_dict(me()['picks'])
+
+    picks['minutes'] = picks.element.apply(lambda row: element(row, 'minutes')).apply(float)
+    picks['now_cost'] = picks.element.apply(lambda row: element(row, 'now_cost'))
+    picks['position'] = picks.element.apply(lambda row: position(element(row, 'element_type')))
+    picks['selected_by_percent'] = picks.element.apply(lambda row: element(row, 'selected_by_percent')).apply(float)
+    picks['team'] = picks.element.apply(lambda row: team_name(element(row, 'team_code')))
+    picks['total_points'] = picks.element.apply(lambda row: element(row, 'total_points')).apply(float)
+    picks['web_name'] = picks.element.apply(lambda row: element(row, 'web_name'))
+
+    picks['score'] = (
+        functions.sigmoid(functions.norm(picks.total_points)) *
+        functions.sigmoid(functions.norm(picks.minutes)) *
+        functions.sigmoid(functions.norm(picks.selected_by_percent))
+    )
+
+    return [
+        structures.Player(
+            name=row.web_name,
+            team=row.team,
+            position=row.position,
+            cost=row.now_cost,
+            score=row.score,
+            points=row.total_points,
+        )
+        for _, row in picks.iterrows()
+    ]
+
+
+if __name__ == "__main__":
+    functions.sprint(team())
