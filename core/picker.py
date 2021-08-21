@@ -242,6 +242,7 @@ def transfers(
     pool: List[structures.Player],
     old: List[structures.Player],
     max_transfers: int,
+    verbose: bool = False,
 ) -> List[structures.Player]:
 
     old_lineup_cost = functions.lineup_cost(old)
@@ -280,8 +281,11 @@ def transfers(
                     new = _transfers(tmp, best, n_transfers=n_transfers + 1)
                 except InvalidLineup:
                     continue
-                else:
-                    best = new.copy()
+
+                best = new.copy()
+                if verbose:
+                    print('-' * 100)
+                    functions.sprint(best)
 
         return best
 
@@ -290,6 +294,13 @@ def transfers(
 
 def argument_parser():
     parser = ArgumentParser(prog="Lazy FPL")
+    parser.add_argument(
+        "-v",
+        "--verbose",
+        action="store_true",
+        help="Enables verbose mode."
+    )
+
     sub_parsers = parser.add_subparsers(dest="mode")
 
     transfer_parser = sub_parsers.add_parser(
@@ -333,12 +344,6 @@ def argument_parser():
         help="Forwards (FPL web-name) tha must be in the lineup.",
         default=[],
     )
-    lineup_parser.add_argument(
-        "-v",
-        "--verbose",
-        action="store_true",
-        help="Enables verbose mode."
-    )
 
     print_parser = sub_parsers.add_parser(
         "print",
@@ -348,7 +353,6 @@ def argument_parser():
         nargs='?',
         choices=("team", "pool"),
         help="Print current FPL-team or player pool.")
-
 
     return parser.parse_args()
 
@@ -362,6 +366,7 @@ def main():
             pool=functions.top_n_score_by_cost_by_positions(gather.player_pool()),
             old=old,
             max_transfers=parsed.max,
+            verbose=parsed.verbose,
         )
         functions.tprint(old, new)
 

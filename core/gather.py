@@ -14,10 +14,12 @@ from core import (
 
 
 class ScoreWeight:
-    total_poins = 1
-    minutes = 0.5
-    selected_by_percent = 0.5
-    difficulty = 0.75
+    # Weight are applied before the values are
+    # sendt to the sigmoid function.
+    difficulty = 4
+    minutes = 2
+    selected_by_percent = 2
+    total_poins = 8
 
 
 @functools.lru_cache()
@@ -48,7 +50,7 @@ def element_summary(element_id: int):
     ).json()
 
 
-def difficulty(element_id, n=5) -> float:
+def difficulty(element_id, n=3) -> float:
     # Normalized 0 -> 1, where 0 is easy and 1 is hard.
     return sum(e["difficulty"] for e in element_summary(element_id)["fixtures"][:n]) / (
         n * 5
