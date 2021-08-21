@@ -51,7 +51,8 @@ def top_n_score_by_cost(lineup, n=3):
 
 
 def top_n_score_by_cost_by_positions(
-    pool: List[structures.Player], cutoff=(2, 3, 3, 2)
+    pool: List[structures.Player],
+    cutoff=(2, 3, 3, 2),
 ):
     new = []
     for n, pos in zip(cutoff, gather.positions()):
@@ -97,5 +98,7 @@ def tprint(old, new):
         set(new).difference(old), key=lambda n: (n.position, n.name)
     )
 
+    rs = len(str(max(change_old_new, key=lambda s: len(str(s)))))
+
     for o, n in zip(change_old_new, change_new_old):
-        print(f"{o} -> {n}")
+        print(f"{str(o):<{rs}} => {str(n):>2}")
