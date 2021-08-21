@@ -1,4 +1,3 @@
-
 from dataclasses import (
     dataclass,
     field,
@@ -7,7 +6,6 @@ from dataclasses import (
 from typing import (
     List,
 )
-
 
 
 @dataclass(frozen=True)
