@@ -1,12 +1,11 @@
 
-from typing import (
-    List,
-    Set,
-    Tuple,
-)
 from itertools import (
     combinations,
 )
+from typing import (
+    List,
+)
+
 from tqdm import (
     tqdm,
 )
@@ -220,19 +219,6 @@ def test():
         max_transfers=2,
     )
     functions.tprint(old, new)
-    # print('transfers')
-    # for i, o in zip(_in, _out):
-    #     print(f'{o} ->> {i}')
-
-    # print('old')
-    # functions.sprint(old)
-
-    # print('new')
-    # functions.sprint(new)
-
-    # functions.sprint(curernt)
-    # print('----')
-    # functions.sprint(t)
 
 
 if __name__ == "__main__":
