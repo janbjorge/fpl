@@ -1,3 +1,6 @@
+from argparse import (
+    ArgumentParser,
+)
 from itertools import (
     combinations,
 )
@@ -27,6 +30,7 @@ class InvalidLineup(FPLException):
 
 def lineup(
     pool: List[structures.Player],
+    verbose: bool = False,
     buget=1_000,
     base=(
         (),
@@ -50,6 +54,22 @@ def lineup(
     )
 
     m_gkps, m_defs, m_mids, m_fwds = [set(m) for m in base]
+
+    for m_gkp in m_gkps:
+        if m_gkp not in set(g.name for g in _gkp):
+            print(f"Unkown goalkeeper: {m_gkp}")
+
+    for m_def in m_defs:
+        if m_def not in set(d.name for d in _def):
+            print(f"Unkown defender: {m_def}")
+
+    for m_mid in m_mids:
+        if m_mid not in set(m.name for m in _mid):
+            print(f"Unkown midfielder: {m_mid}")
+
+    for m_fwd in m_fwds:
+        if m_fwd not in set(f.name for f in _fwd):
+            print(f"Unkown forwarder {m_fwd}")
 
     def _gkp_combinations():
         yield from filter(
@@ -211,8 +231,9 @@ def lineup(
                                     if lvl3(g3):
                                         best_score = functions.lineup_score(g3)
                                         best_lineup = g3
-                                        print("-" * 100)
-                                        functions.sprint(g3)
+                                        if verbose:
+                                            print("-" * 100)
+                                            functions.sprint(g3)
 
     return best_lineup
 
@@ -267,20 +288,107 @@ def transfers(
     return _transfers(old, old, 0)
 
 
-def test():
-    old = gather.team()
-    new = transfers(
-        pool=gather.player_pool(),
-        old=old,
-        max_transfers=3,
+def argument_parser():
+    parser = ArgumentParser(prog="Lazy FPL")
+    sub_parsers = parser.add_subparsers(dest="mode")
+
+    transfer_parser = sub_parsers.add_parser(
+        "transfer",
     )
-    functions.tprint(old, new)
+    transfer_parser.add_argument(
+        'max',
+        type=int,
+        nargs='?',
+        default=2,
+        help="Number of allowed transfers.")
+
+    lineup_parser = sub_parsers.add_parser(
+        "lineup",
+    )
+    lineup_parser.add_argument(
+        "-gkp",
+        "--goalkeepers",
+        nargs="+",
+        help="Goalkeepers (FPL web-name) tha must be in the lineup.",
+        default=[],
+    )
+    lineup_parser.add_argument(
+        "-def",
+        "--defenders",
+        nargs="+",
+        help="Defenders (FPL web-name) tha must be in the lineup.",
+        default=[],
+    )
+    lineup_parser.add_argument(
+        "-mid",
+        "--midfielders",
+        nargs="+",
+        help="Midfielders (FPL web-name) tha must be in the lineup.",
+        default=[],
+    )
+    lineup_parser.add_argument(
+        "-fwd",
+        "--forwards",
+        nargs="+",
+        help="Forwards (FPL web-name) tha must be in the lineup.",
+        default=[],
+    )
+    lineup_parser.add_argument(
+        "-v",
+        "--verbose",
+        action="store_true",
+        help="Enables verbose mode."
+    )
+
+    print_parser = sub_parsers.add_parser(
+        "print",
+    )
+    print_parser.add_argument(
+        'show',
+        nargs='?',
+        choices=("team", "pool"),
+        help="Print current FPL-team or player pool.")
+
+
+    return parser.parse_args()
+
+
+def main():
+    parsed = argument_parser()
+
+    if parsed.mode == "transfer":
+        old = gather.team()
+        new = transfers(
+            pool=functions.top_n_score_by_cost_by_positions(gather.player_pool()),
+            old=old,
+            max_transfers=parsed.max,
+        )
+        functions.tprint(old, new)
+
+    elif parsed.mode == "lineup":
+        functions.sprint(
+            lineup(
+                pool=functions.top_n_score_by_cost_by_positions(gather.player_pool()),
+                verbose=parsed.verbose,
+                base=(
+                    tuple(parsed.goalkeepers),
+                    tuple(parsed.defenders),
+                    tuple(parsed.midfielders),
+                    tuple(parsed.forwards),
+                )
+            )
+        )
+
+    elif parsed.mode == "print":
+        if parsed.show == "team":
+            functions.sprint(
+                gather.team()
+            )
+        elif parsed.show == "pool":
+            functions.lprint(
+                functions.top_n_score_by_cost_by_positions(gather.player_pool()),
+            )
 
 
 if __name__ == "__main__":
-    # functions.sprint(lineup(
-    #     pool=functions.top_n_score_by_cost_by_positions(gather.player_pool()),
-    #     buget=1_000,
-    #     base=((),('Alexander-Arnold', 'Shaw'), ('Salah',), (),),
-    # ))
-    test()
+    main()
