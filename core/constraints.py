@@ -39,3 +39,13 @@ def must_contain(
     if must and lineup:
         return must.issubset(set(p.name for p in lineup))
     return True
+
+
+def team_is_2_5_5_3(lineup: List[Player]) -> bool:
+    count = Counter(p.position for p in lineup)
+    return (
+        count['GKP'] == 2 and
+        count['DEF'] == 5 and
+        count['MID'] == 5 and
+        count['FWD'] == 3
+    )

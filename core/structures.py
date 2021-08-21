@@ -4,17 +4,25 @@ from typing import (
 )
 from dataclasses import (
     dataclass,
+    field,
 )
+
+
+@dataclass(frozen=True)
+class FPLCredentials:
+    login: str
+    password: str
+    team_id: int
 
 
 @dataclass(frozen=True, eq=True)
 class Player:
-    name: str
-    team: str
-    position: str
-    cost: int
-    score: float
-    points: int
+    name: str = field(compare=True, hash=True)
+    team: str = field(compare=True, hash=True)
+    position: str = field(compare=True, hash=True)
+    cost: int = field(compare=False, hash=False)
+    score: float = field(compare=False, hash=False)
+    points: int = field(compare=False, hash=False)
 
 
 @dataclass(frozen=True, eq=True)

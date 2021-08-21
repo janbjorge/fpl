@@ -73,8 +73,12 @@ def sprint(pool):
 
 
 def tprint(old, new):
-    for _in, _out in zip(
-        set(new).difference(old),
-        set(old).difference(new),
-    ):
-        print(f'{_out} ->> {_in}')
+
+    print(f'old: score: {lineup_score(old)}, cost: {lineup_cost(old)}, xP(TP): {xPtt(old)}')
+    print(f'new: score: {lineup_score(new)}, cost: {lineup_cost(new)}, xP(TP): {xPtt(new)}')
+
+    change_old_new = sorted(set(old).difference(new), key=lambda n: (n.position, n.name))
+    change_new_old = sorted(set(new).difference(old), key=lambda n: (n.position, n.name))
+
+    for o, n in zip(change_old_new, change_new_old):
+        print(f'{o} -> {n}')

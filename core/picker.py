@@ -1,12 +1,12 @@
 
 from typing import (
     List,
+    Set,
     Tuple,
 )
 from itertools import (
     combinations,
 )
-
 from tqdm import (
     tqdm,
 )
@@ -164,63 +164,51 @@ def lineup(
 
 
 def transfers(
-    candidates: List[structures.Player],
-    team: List[structures.Player],
+    pool: List[structures.Player],
+    old: List[structures.Player],
     max_transfers: int,
-    budget=1_000,
-) -> Tuple[List[structures.Player], List[structures.Player]]:
+) -> List[structures.Player]:
 
-    def _transfers(best, n_transfers):
+    old_lineup_cost = functions.lineup_cost(old)
+    pool = list(set(pool) - set(old))
+
+    def _transfers(
+        current: List[structures.Player],
+        best: List[structures.Player],
+        n_transfers: int,
+    ) -> List[structures.Player]:
 
         if n_transfers > max_transfers:
             raise InvalidLineup
 
-        for candidate in candidates:
-            for idx, tp in enumerate(team):
+        if n_transfers == max_transfers:
+            if (functions.lineup_cost(current) <= old_lineup_cost
+            and constraints.team_constraint(current)
+            and constraints.gkp_def_not_same_team(current)
+            and functions.lineup_score(current) > functions.lineup_score(best)):
+                return current
+            raise InvalidLineup
 
-                if candidate.position != tp.position:
+        for transfer_in in pool:
+            for idx, transfer_out in enumerate(best):
+
+                if transfer_in.position != transfer_out.position:
                     continue
 
-                # Swap old and new player.
-                tmp = list(team)
-                tmp[idx] = candidate
+                # Transfer inn new player.
+                tmp = current.copy()
+                tmp[idx] = transfer_in
 
                 try:
-                    new = _transfers(best, n_transfers=n_transfers + 1)
+                    new = _transfers(tmp, best, n_transfers=n_transfers + 1)
                 except InvalidLineup:
                     continue
-
-                n, s = functions.lineup_score(new), functions.lineup_score(best)
-                print(s, n, s/n, n_transfers)
-                if functions.lineup_score(new) >= functions.lineup_score(best):
-                    best = list(new)
+                else:
+                    best = new.copy()
 
         return best
 
-    return _transfers(team, 0)
-
-"""
-score: 4.09049, cost: 999, xP(TP): 128
-GKP(n=2, score=0.50031, cost=95)
- Player(name='Schmeichel', team='LEI', position='GKP', cost=50, score=0.26354, points=9)
- Player(name='Sánchez', team='BHA', position='GKP', cost=45, score=0.23677, points=2)
-DEF(n=5, score=1.28459, cost=276)
- Player(name='Shaw', team='MUN', position='DEF', cost=55, score=0.27594, points=1)
- Player(name='Alexander-Arnold', team='LIV', position='DEF', cost=75, score=0.27272, points=6)
- Player(name='Alonso', team='CHE', position='DEF', cost=56, score=0.25851, points=15)
- Player(name='Pinnock', team='BRE', position='DEF', cost=45, score=0.24075, points=11)
- Player(name='Ayling', team='LEE', position='DEF', cost=45, score=0.23667, points=6)
-MID(n=5, score=1.47335, cost=407)
- Player(name='Fernandes', team='MUN', position='MID', cost=121, score=0.39071, points=20)
- Player(name='Salah', team='LIV', position='MID', cost=125, score=0.37309, points=17)
- Player(name='Benrahma', team='WHU', position='MID', cost=61, score=0.25639, points=12)
- Player(name='Dallas', team='LEE', position='MID', cost=55, score=0.23555, points=5)
- Player(name='Bissouma', team='BHA', position='MID', cost=45, score=0.21761, points=2)
-FWD(n=3, score=0.83224, cost=221)
- Player(name='Antonio', team='WHU', position='FWD', cost=76, score=0.29929, points=13)
- Player(name='Ings', team='AVL', position='FWD', cost=80, score=0.28727, points=7)
- Player(name='Toney', team='BRE', position='FWD', cost=65, score=0.24568, points=2)
-"""
+    return _transfers(old, old, 0)
 
 
 def test():
@@ -231,15 +219,16 @@ def test():
         old,
         max_transfers=2,
     )
+    functions.tprint(old, new)
+    # print('transfers')
+    # for i, o in zip(_in, _out):
+    #     print(f'{o} ->> {i}')
 
     # print('old')
     # functions.sprint(old)
 
     # print('new')
     # functions.sprint(new)
-
-    print('transfers')
-    functions.tprint(old, new)
 
     # functions.sprint(curernt)
     # print('----')

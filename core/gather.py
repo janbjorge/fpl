@@ -1,6 +1,6 @@
 
 from statistics import mean
-from typing import List
+from typing import List, Literal
 import contextlib
 import functools
 import os
@@ -124,6 +124,7 @@ def team():
         functions.sigmoid(functions.norm(picks.minutes)) *
         functions.sigmoid(functions.norm(picks.selected_by_percent))
     )
+    picks['score'] = picks.score.apply(lambda x: round(x, 5))
 
     return [
         structures.Player(
