@@ -131,3 +131,6 @@ dmypy.json
 
 # Ignore vscode repo settings
 .vscode/
+
+# Ignore 
+.file_cache/

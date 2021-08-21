@@ -8,16 +8,21 @@ import requests
 
 from core import (
     functions,
+    helpers,
     structures,
 )
 
 
-BOOTSTRAP_URL = "https://fantasy.premierleague.com/api/bootstrap-static/"
+class ScoreWeight:
+    total_poins = 1
+    minutes = 0.5
+    selected_by_percent = 0.5
+    difficulty = 0.75
 
 
 @functools.lru_cache()
-def bootstrap_static():
-    return requests.get(BOOTSTRAP_URL).json()
+def bootstrap_static(url="https://fantasy.premierleague.com/api/bootstrap-static/"):
+    return requests.get(url).json()
 
 
 def positions():
@@ -36,7 +41,23 @@ def position(element_type_id):
             return element_type["singular_name_short"]
 
 
-def player_pool(acc=mean) -> List[structures.Player]:
+@helpers.file_cache()
+def element_summary(element_id: int):
+    return requests.get(
+        f"https://fantasy.premierleague.com/api/element-summary/{element_id}/"
+    ).json()
+
+
+def difficulty(element_id, n=5) -> float:
+    # Normalized 0 -> 1, where 0 is easy and 1 is hard.
+    return sum(e["difficulty"] for e in element_summary(element_id)["fixtures"][:n]) / (
+        n * 5
+    )
+
+
+def player_pool(
+    acc=mean,
+) -> List[structures.Player]:
 
     pool_pd = pd.DataFrame.from_dict(bootstrap_static()["elements"])
 
@@ -47,10 +68,20 @@ def player_pool(acc=mean) -> List[structures.Player]:
     pool_pd["team"] = pool_pd["team_code"].apply(team_name)
     pool_pd["selected_by_percent"] = pool_pd["selected_by_percent"].apply(float)
 
+    # The "difficulty" function returls difficulty from 0 -> 1
+    # we want players with a low difficulty to have an advantaged
+    pool_pd["difficulty"] = 1 - pool_pd.id.apply(difficulty)
+
     pool_pd["score"] = (
-        functions.sigmoid(functions.norm(pool_pd.total_points))
-        * functions.sigmoid(functions.norm(pool_pd.minutes))
-        * functions.sigmoid(functions.norm(pool_pd.selected_by_percent))
+        functions.sigmoid(
+            functions.norm(pool_pd.total_points) * ScoreWeight.total_poins
+        )
+        * functions.sigmoid(functions.norm(pool_pd.minutes) * ScoreWeight.minutes)
+        * functions.sigmoid(
+            functions.norm(pool_pd.selected_by_percent)
+            * ScoreWeight.selected_by_percent
+        )
+        * functions.sigmoid(functions.norm(pool_pd.difficulty) * ScoreWeight.difficulty)
     )
 
     # Only pick candidates that are above averge in their position.
@@ -129,11 +160,19 @@ def team():
     ).apply(float)
     picks["web_name"] = picks.element.apply(lambda row: element(row, "web_name"))
 
+    # The "difficulty" function returls difficulty from 0 -> 1
+    # we want players with a low difficulty to have an advantaged
+    picks["difficulty"] = 1 - picks.element.apply(difficulty)
+
     picks["score"] = (
-        functions.sigmoid(functions.norm(picks.total_points))
-        * functions.sigmoid(functions.norm(picks.minutes))
-        * functions.sigmoid(functions.norm(picks.selected_by_percent))
+        functions.sigmoid(functions.norm(picks.total_points) * ScoreWeight.total_poins)
+        * functions.sigmoid(functions.norm(picks.minutes) * ScoreWeight.minutes)
+        * functions.sigmoid(
+            functions.norm(picks.selected_by_percent) * ScoreWeight.selected_by_percent
+        )
+        * functions.sigmoid(functions.norm(picks.difficulty) * ScoreWeight.difficulty)
     )
+
     picks["score"] = picks.score.apply(lambda x: round(x, 5))
 
     return [

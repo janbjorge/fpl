@@ -9,13 +9,9 @@ import numpy as np
 
 from core import (
     gather,
+    helpers,
     structures,
 )
-
-
-def flatten(t):
-    # Copy from stackoverflow.
-    return [item for sublist in t for item in sublist]
 
 
 def norm(values):
@@ -60,7 +56,7 @@ def top_n_score_by_cost_by_positions(
     new = []
     for n, pos in zip(cutoff, gather.positions()):
         d = top_n_score_by_cost((p for p in pool if p.position == pos), n=n)
-        new.extend(flatten(d))
+        new.extend(helpers.flatten(d))
     return new
 
 

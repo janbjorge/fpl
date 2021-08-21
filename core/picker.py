@@ -269,11 +269,10 @@ def transfers(
 
 def test():
     old = gather.team()
-    pool = functions.top_n_score_by_cost_by_positions(gather.player_pool())
     new = transfers(
-        pool,
-        old,
-        max_transfers=2,
+        pool=gather.player_pool(),
+        old=old,
+        max_transfers=3,
     )
     functions.tprint(old, new)
 
