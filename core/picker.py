@@ -284,7 +284,7 @@ def transfers(
 
                 best = new.copy()
                 if verbose:
-                    print('-' * 100)
+                    print("-" * 100)
                     functions.sprint(best)
 
         return best
@@ -295,10 +295,7 @@ def transfers(
 def argument_parser():
     parser = ArgumentParser(prog="Lazy FPL")
     parser.add_argument(
-        "-v",
-        "--verbose",
-        action="store_true",
-        help="Enables verbose mode."
+        "-v", "--verbose", action="store_true", help="Enables verbose mode."
     )
 
     sub_parsers = parser.add_subparsers(dest="mode")
@@ -307,11 +304,8 @@ def argument_parser():
         "transfer",
     )
     transfer_parser.add_argument(
-        'max',
-        type=int,
-        nargs='?',
-        default=2,
-        help="Number of allowed transfers.")
+        "max", type=int, nargs="?", default=2, help="Number of allowed transfers."
+    )
 
     lineup_parser = sub_parsers.add_parser(
         "lineup",
@@ -349,10 +343,11 @@ def argument_parser():
         "print",
     )
     print_parser.add_argument(
-        'show',
-        nargs='?',
+        "show",
+        nargs="?",
         choices=("team", "pool"),
-        help="Print current FPL-team or player pool.")
+        help="Print current FPL-team or player pool.",
+    )
 
     return parser.parse_args()
 
@@ -380,15 +375,13 @@ def main():
                     tuple(parsed.defenders),
                     tuple(parsed.midfielders),
                     tuple(parsed.forwards),
-                )
+                ),
             )
         )
 
     elif parsed.mode == "print":
         if parsed.show == "team":
-            functions.sprint(
-                gather.team()
-            )
+            functions.sprint(gather.team())
         elif parsed.show == "pool":
             functions.lprint(
                 functions.top_n_score_by_cost_by_positions(gather.player_pool()),

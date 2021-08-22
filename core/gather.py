@@ -16,10 +16,10 @@ from core import (
 class ScoreWeight:
     # Weight are applied before the values are
     # sendt to the sigmoid function.
-    difficulty = 4
-    minutes = 2
-    selected_by_percent = 2
-    total_poins = 8
+    difficulty = 7.5
+    minutes = 5
+    selected_by_percent = 5
+    total_poins = 10
 
 
 @functools.lru_cache()
@@ -57,6 +57,17 @@ def difficulty(element_id, n=3) -> float:
     )
 
 
+def score(df: pd.DataFrame) -> pd.Series:
+    return (
+        functions.sigmoid(functions.norm(df.total_points), ScoreWeight.total_poins)
+        * functions.sigmoid(functions.norm(df.minutes), ScoreWeight.minutes)
+        * functions.sigmoid(
+            (df.selected_by_percent / 100.0), ScoreWeight.selected_by_percent
+        )
+        * functions.sigmoid(df.difficulty, ScoreWeight.difficulty)
+    )
+
+
 def player_pool(
     acc=mean,
 ) -> List[structures.Player]:
@@ -74,17 +85,8 @@ def player_pool(
     # we want players with a low difficulty to have an advantaged
     pool_pd["difficulty"] = 1 - pool_pd.id.apply(difficulty)
 
-    pool_pd["score"] = (
-        functions.sigmoid(
-            functions.norm(pool_pd.total_points) * ScoreWeight.total_poins
-        )
-        * functions.sigmoid(functions.norm(pool_pd.minutes) * ScoreWeight.minutes)
-        * functions.sigmoid(
-            functions.norm(pool_pd.selected_by_percent)
-            * ScoreWeight.selected_by_percent
-        )
-        * functions.sigmoid(functions.norm(pool_pd.difficulty) * ScoreWeight.difficulty)
-    )
+    # Scores players.
+    pool_pd["score"] = score(pool_pd)
 
     # Only pick candidates that are above averge in their position.
     pool_gkp = pool_pd[pool_pd["position"] == "GKP"]
@@ -166,15 +168,8 @@ def team():
     # we want players with a low difficulty to have an advantaged
     picks["difficulty"] = 1 - picks.element.apply(difficulty)
 
-    picks["score"] = (
-        functions.sigmoid(functions.norm(picks.total_points) * ScoreWeight.total_poins)
-        * functions.sigmoid(functions.norm(picks.minutes) * ScoreWeight.minutes)
-        * functions.sigmoid(
-            functions.norm(picks.selected_by_percent) * ScoreWeight.selected_by_percent
-        )
-        * functions.sigmoid(functions.norm(picks.difficulty) * ScoreWeight.difficulty)
-    )
-
+    # Scores players.
+    picks["score"] = score(picks)
     picks["score"] = picks.score.apply(lambda x: round(x, 5))
 
     return [
