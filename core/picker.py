@@ -155,9 +155,7 @@ def lineup(
     best_score = 0
     best_lineup = list()
     buget_lower = buget * 0.9
-    score_lower = statistics.mean(
-        (max_score_gkp, max_score_def, max_score_mid, max_score_fwd),
-    )
+    score_lower = sum((max_score_gkp, max_score_def, max_score_mid, max_score_fwd)) * 0.9
 
     print(f"{min_cost_mid=}, {min_cost_fwd=}, {min_cost_mid_fwd=}")
     print(f"{max_score_mid=}, {max_score_fwd=}, {max_score_mid_fwd=}")
@@ -307,7 +305,7 @@ def argument_parser():
         help="Clear local cache",
     )
 
-    sub_parsers = parser.add_subparsers(dest="mode")
+    sub_parsers = parser.add_subparsers(dest="mode", required=True)
 
     transfer_parser = sub_parsers.add_parser(
         "transfer",

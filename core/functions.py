@@ -72,7 +72,7 @@ def top_n_score_by_cost_by_positions(
 ) -> T.List[structures.Player]:
     new = []
     for n, pos in zip(cutoff, gather.positions()):
-        d = top_n_score_by_cost((p for p in pool if p.position == pos), n=n)
+        d = top_n_score_by_cost([p for p in pool if p.position == pos], n=n)
         new.extend(helpers.flatten(d))
     return new
 

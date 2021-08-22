@@ -1,8 +1,8 @@
 import functools
 import os
-import statistics
 import typing as T
 
+import numpy as np
 import pandas as pd
 import requests
 
@@ -63,12 +63,14 @@ def history(element_id: int):
 
 def total_points_history(element_id: int) -> float:
     return functions.sigmoid_averge(
-        tuple(h["total_points"] for h in history(element_id))
+        tuple(h["total_points"] for h in reversed(history(element_id)))
     )
 
 
 def minutes_history(element_id: int) -> float:
-    return functions.sigmoid_averge(tuple(h["minutes"] for h in history(element_id)))
+    return functions.sigmoid_averge(
+        tuple(h["minutes"] for h in reversed(history(element_id)))
+    )
 
 
 def score(df: pd.DataFrame) -> pd.Series:
@@ -81,9 +83,7 @@ def score(df: pd.DataFrame) -> pd.Series:
     )
 
 
-def player_pool(
-    acc=statistics.mean,
-) -> T.List[structures.Player]:
+def player_pool() -> T.List[structures.Player]:
 
     pool_pd = pd.DataFrame.from_dict(bootstrap_static()["elements"])
 
@@ -99,24 +99,27 @@ def player_pool(
     pool_pd["minutes_history"] = pool_pd.id.apply(minutes_history)
     pool_pd["total_points_history"] = pool_pd.id.apply(total_points_history)
 
+    pool_pd = pool_pd[pool_pd["minutes_history"] > 0]
+    pool_pd = pool_pd[pool_pd["total_points_history"] > 0]
+
     # Scores players.
     pool_pd["score"] = score(pool_pd)
+    pool_pd["score"] = pool_pd.score.apply(lambda x: round(x, 5))
 
     # Only pick candidates that are above averge in their position.
     pool_gkp = pool_pd[pool_pd["position"] == "GKP"]
-    pool_gkp = pool_gkp.loc[pool_gkp["score"] > acc(pool_gkp["score"])]
+    pool_gkp = pool_gkp.loc[pool_gkp["score"] > np.quantile(pool_gkp["score"], 0.25)]
 
     pool_def = pool_pd[pool_pd["position"] == "DEF"]
-    pool_def = pool_def.loc[pool_def["score"] > acc(pool_def["score"])]
+    pool_def = pool_def.loc[pool_def["score"] > np.quantile(pool_def["score"], 0.25)]
 
     pool_mid = pool_pd[pool_pd["position"] == "MID"]
-    pool_mid = pool_mid.loc[pool_mid["score"] > acc(pool_mid["score"])]
+    pool_mid = pool_mid.loc[pool_mid["score"] > np.quantile(pool_mid["score"], 0.25)]
 
     pool_fwd = pool_pd[pool_pd["position"] == "FWD"]
-    pool_fwd = pool_fwd.loc[pool_fwd["score"] > acc(pool_fwd["score"])]
+    pool_fwd = pool_fwd.loc[pool_fwd["score"] > np.quantile(pool_fwd["score"], 0.25)]
 
-    pool_pd = pd.concat([pool_gkp, pool_def, pool_mid, pool_fwd])
-    pool_pd["score"] = pool_pd.score.apply(lambda x: round(x, 5))
+    pool_pd = pd.concat((pool_gkp, pool_def, pool_mid, pool_fwd))
 
     return [
         structures.Player(
@@ -198,7 +201,3 @@ def team():
         )
         for _, row in picks.iterrows()
     ]
-
-
-if __name__ == "__main__":
-    functions.sprint(team())
