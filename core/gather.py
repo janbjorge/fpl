@@ -1,8 +1,8 @@
-from pathlib import Path
-from statistics import mean
-from typing import List
 import functools
 import os
+import pathlib
+import statistics
+import typing as T
 
 import pandas as pd
 import requests
@@ -44,7 +44,7 @@ def position(element_type_id):
             return element_type["singular_name_short"]
 
 
-@helpers.file_cache(Path("./.file_cache/element_summary"))
+@helpers.file_cache(pathlib.Path("./.file_cache/element_summary"))
 def element_summary(element_id: int):
     return requests.get(
         f"https://fantasy.premierleague.com/api/element-summary/{element_id}/"
@@ -70,14 +70,14 @@ def total_points_history(element_id: int) -> float:
 
 
 def minutes_history(element_id: int) -> float:
-    return functions.sigmoid_averge(
-        tuple(h["minutes"] for h in history(element_id))
-    )
+    return functions.sigmoid_averge(tuple(h["minutes"] for h in history(element_id)))
 
 
 def score(df: pd.DataFrame) -> pd.Series:
     return (
-        functions.sigmoid(functions.norm(df.total_points_history), ScoreWeight.total_poins)
+        functions.sigmoid(
+            functions.norm(df.total_points_history), ScoreWeight.total_poins
+        )
         * functions.sigmoid(functions.norm(df.minutes_history), ScoreWeight.minutes)
         * functions.sigmoid(
             (df.selected_by_percent / 100.0), ScoreWeight.selected_by_percent
@@ -87,8 +87,8 @@ def score(df: pd.DataFrame) -> pd.Series:
 
 
 def player_pool(
-    acc=mean,
-) -> List[structures.Player]:
+    acc=statistics.mean,
+) -> T.List[structures.Player]:
 
     pool_pd = pd.DataFrame.from_dict(bootstrap_static()["elements"])
 
@@ -102,12 +102,8 @@ def player_pool(
     # The "difficulty" function returls difficulty from 0 -> 1
     # we want players with a low difficulty to have an advantaged
     pool_pd["difficulty"] = 1 - pool_pd.id.apply(difficulty)
-    pool_pd["minutes_history"] = pool_pd.id.apply(
-        minutes_history
-    )
-    pool_pd["total_points_history"] = pool_pd.id.apply(
-        total_points_history
-    )
+    pool_pd["minutes_history"] = pool_pd.id.apply(minutes_history)
+    pool_pd["total_points_history"] = pool_pd.id.apply(total_points_history)
 
     # Scores players.
     pool_pd["score"] = score(pool_pd)
@@ -146,7 +142,7 @@ def my_team(
     login="https://users.premierleague.com/accounts/login/",
     redirect_uri="https://fantasy.premierleague.com/a/login",
     app="plfpl-web",
-) -> List[structures.Player]:
+) -> T.List[structures.Player]:
 
     with requests.session() as s:
         s.post(
@@ -193,12 +189,8 @@ def team():
     # The "difficulty" function returls difficulty from 0 -> 1
     # we want players with a low difficulty to have an advantaged
     picks["difficulty"] = 1 - picks.element.apply(difficulty)
-    picks["minutes_history"] = picks.element.apply(
-        minutes_history
-    )
-    picks["total_points_history"] = picks.element.apply(
-        total_points_history
-    )
+    picks["minutes_history"] = picks.element.apply(minutes_history)
+    picks["total_points_history"] = picks.element.apply(total_points_history)
 
     # Scores players.
     picks["score"] = score(picks)

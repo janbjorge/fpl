@@ -1,11 +1,5 @@
-from collections import (
-    defaultdict,
-)
-from typing import (
-    List,
-    Sequence,
-    Union,
-)
+import collections
+import typing as T
 
 import numpy as np
 
@@ -27,8 +21,8 @@ def sigmoid(x, gamma):
 
 
 def sigmoid_averge(
-    samples: Sequence[Union[float, int]],
-) -> Union[float, int]:
+    samples: T.Sequence[T.Union[float, int]],
+) -> T.Union[float, int]:
     # By applying this averger we pay more attion
     # to newer values than older values.
     n = len(samples)
@@ -38,26 +32,34 @@ def sigmoid_averge(
     return np.average(samples, weights=weights)
 
 
-def lineup_cost(lineup, acc=sum):
+def lineup_cost(
+    lineup: T.List[structures.Player],
+    acc=sum,
+):
     return acc(player.cost for player in lineup)
 
 
-def lineup_score(lineup, acc=sum):
+def lineup_score(lineup: T.List[structures.Player], acc=sum):
     return acc(player.score for player in lineup)
 
 
-def xPtt(lineup: List[structures.Player], acc=sum) -> float:
+def xPtt(lineup: T.List[structures.Player], acc=sum) -> float:
     return acc(p.points for p in lineup)
 
 
-def grp_by_cost(lineup):
-    grp = defaultdict(list)
+def grp_by_cost(
+    lineup: T.List[structures.Player],
+) -> T.DefaultDict[int, T.List[structures.Player]]:
+    grp = collections.defaultdict(list)
     for p in lineup:
         grp[p.cost].append(p)
     return grp
 
 
-def top_n_score_by_cost(lineup, n=3):
+def top_n_score_by_cost(
+    lineup: T.List[structures.Player],
+    n: int = 3,
+) -> T.List[T.List[structures.Player]]:
     return [
         sorted(v, key=lambda v: v.score, reverse=True)[:n]
         for v in grp_by_cost(lineup).values()
@@ -65,9 +67,9 @@ def top_n_score_by_cost(lineup, n=3):
 
 
 def top_n_score_by_cost_by_positions(
-    pool: List[structures.Player],
-    cutoff=(2, 4, 4, 2),
-):
+    pool: T.List[structures.Player],
+    cutoff: T.Tuple[int, int, int, int] = (2, 4, 4, 2),
+) -> T.List[structures.Player]:
     new = []
     for n, pos in zip(cutoff, gather.positions()):
         d = top_n_score_by_cost((p for p in pool if p.position == pos), n=n)
@@ -75,7 +77,7 @@ def top_n_score_by_cost_by_positions(
     return new
 
 
-def lprint(lineup: List[structures.Player]):
+def lprint(lineup: T.List[structures.Player]) -> None:
     for pos in gather.positions():
         pos_players = sorted(
             (p for p in lineup if p.position == pos),
@@ -89,14 +91,17 @@ def lprint(lineup: List[structures.Player]):
             print(f" {player}")
 
 
-def sprint(pool):
+def sprint(pool: T.List[structures.Player]) -> None:
     print(
         f"score: {lineup_score(pool)}, cost: {lineup_cost(pool)}, xP(TP): {xPtt(pool)}"
     )
     lprint(pool)
 
 
-def tprint(old, new):
+def tprint(
+    old: T.List[structures.Player],
+    new: T.List[structures.Player],
+) -> None:
 
     print(
         f"old: score: {lineup_score(old)}, cost: {lineup_cost(old)}, xP(TP): {xPtt(old)}"

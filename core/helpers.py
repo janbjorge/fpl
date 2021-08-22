@@ -1,6 +1,11 @@
 import functools
+import itertools
 import json
 import pathlib
+import typing
+
+
+E = typing.TypeVar("E")
 
 
 def file_cache(folder: pathlib.Path):
@@ -25,6 +30,5 @@ def file_cache(folder: pathlib.Path):
     return outer
 
 
-def flatten(t):
-    # Copy from stackoverflow.
-    return [item for sublist in t for item in sublist]
+def flatten(t: typing.List[typing.List[E]]) -> typing.List[E]:
+    return list(itertools.chain(*t))

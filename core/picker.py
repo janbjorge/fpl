@@ -1,12 +1,7 @@
-from argparse import (
-    ArgumentParser,
-)
-from itertools import (
-    combinations,
-)
-from typing import (
-    List,
-)
+import argparse
+import itertools
+import statistics
+import typing as T
 
 from tqdm import (
     tqdm,
@@ -29,7 +24,7 @@ class InvalidLineup(FPLException):
 
 
 def lineup(
-    pool: List[structures.Player],
+    pool: T.List[structures.Player],
     verbose: bool = False,
     buget=1_000,
     base=(
@@ -38,7 +33,7 @@ def lineup(
         (),
         (),
     ),
-) -> List[structures.Player]:
+) -> T.List[structures.Player]:
 
     _gkp = sorted(
         (p for p in pool if p.position == "GKP"), key=lambda p: p.score, reverse=True
@@ -75,28 +70,28 @@ def lineup(
         yield from filter(
             lambda g: constraints.position_constraint(g, 1, "GKP")
             and constraints.must_contain(g, m_gkps),
-            combinations(_gkp, 2),
+            itertools.combinations(_gkp, 2),
         )
 
     def _def_combinations():
         yield from filter(
             lambda d: constraints.position_constraint(d, 1, "DEF")
             and constraints.must_contain(d, m_defs),
-            combinations(_def, 5),
+            itertools.combinations(_def, 5),
         )
 
     def _mid_combinations():
         yield from filter(
             lambda m: constraints.position_constraint(m, 2, "MID")
             and constraints.must_contain(m, m_mids),
-            combinations(_mid, 5),
+            itertools.combinations(_mid, 5),
         )
 
     def _fwd_combinations():
         yield from filter(
             lambda f: constraints.position_constraint(f, 1, "FWD")
             and constraints.must_contain(f, m_fwds),
-            combinations(_fwd, 3),
+            itertools.combinations(_fwd, 3),
         )
 
     gkp_combinations = tuple(
@@ -156,8 +151,10 @@ def lineup(
 
     best_score = 0
     best_lineup = list()
-    buget_lower = buget * 0.90
-    score_lower = (max_score_gkp + max_score_def + max_score_mid + max_score_fwd) * 0.90
+    buget_lower = buget * 0.9
+    score_lower = statistics.mean(
+        (max_score_gkp, max_score_def, max_score_mid, max_score_fwd),
+    )
 
     print(f"{min_cost_mid=}, {min_cost_fwd=}, {min_cost_mid_fwd=}")
     print(f"{max_score_mid=}, {max_score_fwd=}, {max_score_mid_fwd=}")
@@ -239,20 +236,20 @@ def lineup(
 
 
 def transfers(
-    pool: List[structures.Player],
-    old: List[structures.Player],
+    pool: T.List[structures.Player],
+    old: T.List[structures.Player],
     max_transfers: int,
     verbose: bool = False,
-) -> List[structures.Player]:
+) -> T.List[structures.Player]:
 
     old_lineup_cost = functions.lineup_cost(old)
     pool = list(set(pool) - set(old))
 
     def _transfers(
-        current: List[structures.Player],
-        best: List[structures.Player],
+        current: T.List[structures.Player],
+        best: T.List[structures.Player],
         n_transfers: int,
-    ) -> List[structures.Player]:
+    ) -> T.List[structures.Player]:
 
         if n_transfers > max_transfers:
             raise InvalidLineup
@@ -293,7 +290,7 @@ def transfers(
 
 
 def argument_parser():
-    parser = ArgumentParser(prog="Lazy FPL")
+    parser = argparse.ArgumentParser(prog="Lazy FPL")
     parser.add_argument(
         "-v", "--verbose", action="store_true", help="Enables verbose mode."
     )
