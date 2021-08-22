@@ -1,5 +1,7 @@
 import argparse
 import itertools
+import pathlib
+import shutil
 import statistics
 import typing as T
 
@@ -11,6 +13,7 @@ from core import (
     constraints,
     functions,
     gather,
+    helpers,
     structures,
 )
 
@@ -292,7 +295,16 @@ def transfers(
 def argument_parser():
     parser = argparse.ArgumentParser(prog="Lazy FPL")
     parser.add_argument(
-        "-v", "--verbose", action="store_true", help="Enables verbose mode."
+        "-v",
+        "--verbose",
+        action="store_true",
+        help="Enables verbose mode.",
+    )
+    parser.add_argument(
+        "-p",
+        "--prune",
+        action="store_true",
+        help="Clear local cache",
     )
 
     sub_parsers = parser.add_subparsers(dest="mode")
@@ -301,7 +313,11 @@ def argument_parser():
         "transfer",
     )
     transfer_parser.add_argument(
-        "max", type=int, nargs="?", default=2, help="Number of allowed transfers."
+        "max",
+        type=int,
+        nargs="?",
+        default=2,
+        help="Number of allowed transfers.",
     )
 
     lineup_parser = sub_parsers.add_parser(
@@ -351,6 +367,11 @@ def argument_parser():
 
 def main():
     parsed = argument_parser()
+
+    if parsed.prune and helpers.CACHE_FOLDER.exists():
+        print(f"Clearing cache: {helpers.CACHE_FOLDER}")
+        shutil.rmtree(helpers.CACHE_FOLDER)
+        print(f"Clearing cache: {helpers.CACHE_FOLDER} - done")
 
     if parsed.mode == "transfer":
         old = gather.team()

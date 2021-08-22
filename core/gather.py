@@ -1,6 +1,5 @@
 import functools
 import os
-import pathlib
 import statistics
 import typing as T
 
@@ -19,7 +18,6 @@ class ScoreWeight:
     # sendt to the sigmoid function.
     difficulty = 7.5
     minutes = 5
-    selected_by_percent = 5
     total_poins = 10
 
 
@@ -44,7 +42,7 @@ def position(element_type_id):
             return element_type["singular_name_short"]
 
 
-@helpers.file_cache(pathlib.Path("./.file_cache/element_summary"))
+@helpers.file_cache("element_summary")
 def element_summary(element_id: int):
     return requests.get(
         f"https://fantasy.premierleague.com/api/element-summary/{element_id}/"
@@ -79,9 +77,6 @@ def score(df: pd.DataFrame) -> pd.Series:
             functions.norm(df.total_points_history), ScoreWeight.total_poins
         )
         * functions.sigmoid(functions.norm(df.minutes_history), ScoreWeight.minutes)
-        * functions.sigmoid(
-            (df.selected_by_percent / 100.0), ScoreWeight.selected_by_percent
-        )
         * functions.sigmoid(df.difficulty, ScoreWeight.difficulty)
     )
 
@@ -97,7 +92,6 @@ def player_pool(
 
     pool_pd["position"] = pool_pd["element_type"].apply(position)
     pool_pd["team"] = pool_pd["team_code"].apply(team_name)
-    pool_pd["selected_by_percent"] = pool_pd["selected_by_percent"].apply(float)
 
     # The "difficulty" function returls difficulty from 0 -> 1
     # we want players with a low difficulty to have an advantaged
@@ -175,9 +169,6 @@ def team():
     picks["position"] = picks.element.apply(
         lambda row: position(element(row, "element_type"))
     )
-    picks["selected_by_percent"] = picks.element.apply(
-        lambda row: element(row, "selected_by_percent")
-    ).apply(float)
     picks["team"] = picks.element.apply(
         lambda row: team_name(element(row, "team_code"))
     )
