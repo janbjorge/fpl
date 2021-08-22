@@ -51,10 +51,11 @@ def element_summary(element_id: int):
     ).json()
 
 
-def difficulty(element_id, n=3) -> float:
-    # Normalized 0 -> 1, where 0 is easy and 1 is hard.
-    return sum(e["difficulty"] for e in element_summary(element_id)["fixtures"][:n]) / (
-        n * 5
+def difficulty(element_id, n=5) -> float:
+    # Normalized 0 -> 1, where 0 is easy and 1 is hard, the
+    # upcomming match is more importent than a match in a few gameworks.
+    return functions.sigmoid_averge(
+        tuple(e["difficulty"] / 5 for e in element_summary(element_id)["fixtures"][:n])
     )
 
 
