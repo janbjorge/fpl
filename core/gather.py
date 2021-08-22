@@ -59,10 +59,26 @@ def difficulty(element_id, n=5) -> float:
     )
 
 
+def history(element_id: int):
+    return element_summary(element_id)["history"]
+
+
+def total_points_history(element_id: int) -> float:
+    return functions.sigmoid_averge(
+        tuple(h["total_points"] for h in history(element_id))
+    )
+
+
+def minutes_history(element_id: int) -> float:
+    return functions.sigmoid_averge(
+        tuple(h["minutes"] for h in history(element_id))
+    )
+
+
 def score(df: pd.DataFrame) -> pd.Series:
     return (
-        functions.sigmoid(functions.norm(df.total_points), ScoreWeight.total_poins)
-        * functions.sigmoid(functions.norm(df.minutes), ScoreWeight.minutes)
+        functions.sigmoid(functions.norm(df.total_points_history), ScoreWeight.total_poins)
+        * functions.sigmoid(functions.norm(df.minutes_history), ScoreWeight.minutes)
         * functions.sigmoid(
             (df.selected_by_percent / 100.0), ScoreWeight.selected_by_percent
         )
@@ -86,6 +102,12 @@ def player_pool(
     # The "difficulty" function returls difficulty from 0 -> 1
     # we want players with a low difficulty to have an advantaged
     pool_pd["difficulty"] = 1 - pool_pd.id.apply(difficulty)
+    pool_pd["minutes_history"] = pool_pd.id.apply(
+        minutes_history
+    )
+    pool_pd["total_points_history"] = pool_pd.id.apply(
+        total_points_history
+    )
 
     # Scores players.
     pool_pd["score"] = score(pool_pd)
@@ -171,6 +193,12 @@ def team():
     # The "difficulty" function returls difficulty from 0 -> 1
     # we want players with a low difficulty to have an advantaged
     picks["difficulty"] = 1 - picks.element.apply(difficulty)
+    picks["minutes_history"] = picks.element.apply(
+        minutes_history
+    )
+    picks["total_points_history"] = picks.element.apply(
+        total_points_history
+    )
 
     # Scores players.
     picks["score"] = score(picks)
