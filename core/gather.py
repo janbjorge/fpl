@@ -1,3 +1,4 @@
+from pathlib import Path
 from statistics import mean
 from typing import List
 import functools
@@ -43,7 +44,7 @@ def position(element_type_id):
             return element_type["singular_name_short"]
 
 
-@helpers.file_cache()
+@helpers.file_cache(Path("./.file_cache/element_summary"))
 def element_summary(element_id: int):
     return requests.get(
         f"https://fantasy.premierleague.com/api/element-summary/{element_id}/"
@@ -118,11 +119,10 @@ def player_pool(
 
 
 @functools.lru_cache()
-def me(
+def my_team(
     login="https://users.premierleague.com/accounts/login/",
     redirect_uri="https://fantasy.premierleague.com/a/login",
     app="plfpl-web",
-    my_team="https://fantasy.premierleague.com/api/my-team/{}/",
 ) -> List[structures.Player]:
 
     with requests.session() as s:
@@ -135,7 +135,10 @@ def me(
                 "app": app,
             },
         )
-        return s.get(my_team.format(os.environ["FPL_TEAM_ID"])).json()
+        _me = s.get("https://fantasy.premierleague.com/api/me/").json()
+        return s.get(
+            f"https://fantasy.premierleague.com/api/my-team/{_me['player']['entry']}/"
+        ).json()
 
 
 def team():
@@ -144,7 +147,7 @@ def team():
             if element["id"] == _id:
                 return element[key]
 
-    picks = pd.DataFrame.from_dict(me()["picks"])
+    picks = pd.DataFrame.from_dict(my_team()["picks"])
 
     picks["minutes"] = picks.element.apply(lambda row: element(row, "minutes")).apply(
         float

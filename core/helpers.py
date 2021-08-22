@@ -3,7 +3,7 @@ import json
 import pathlib
 
 
-def file_cache(folder: pathlib.Path = pathlib.Path("./.file_cache")):
+def file_cache(folder: pathlib.Path):
 
     folder.mkdir(parents=True, exist_ok=True)
 
