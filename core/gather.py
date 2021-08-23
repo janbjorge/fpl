@@ -16,9 +16,9 @@ from core import (
 class ScoreWeight:
     # Weight are applied before the values are
     # sendt to the sigmoid function.
-    difficulty = 7.5
-    minutes = 5
-    total_poins = 10
+    difficulty = 5 / 2
+    minutes = 5 / 4
+    total_poins = 5
 
 
 @functools.lru_cache()
@@ -52,7 +52,7 @@ def element_summary(element_id: int):
 def difficulty(element_id, n=5) -> float:
     # Normalized 0 -> 1, where 0 is easy and 1 is hard, the
     # upcomming match is more importent than a match in a few gameworks.
-    return functions.sigmoid_averge(
+    return functions.caverge(
         tuple(e["difficulty"] / 5 for e in element_summary(element_id)["fixtures"][:n])
     )
 
@@ -62,13 +62,13 @@ def history(element_id: int):
 
 
 def total_points_history(element_id: int) -> float:
-    return functions.sigmoid_averge(
+    return functions.caverge(
         tuple(h["total_points"] for h in reversed(history(element_id)))
     )
 
 
 def minutes_history(element_id: int) -> float:
-    return functions.sigmoid_averge(
+    return functions.caverge(
         tuple(h["minutes"] for h in reversed(history(element_id)))
     )
 
@@ -83,7 +83,9 @@ def score(df: pd.DataFrame) -> pd.Series:
     )
 
 
-def player_pool() -> T.List[structures.Player]:
+def player_pool(
+    quantile: float = 0.25,
+) -> T.List[structures.Player]:
 
     pool_pd = pd.DataFrame.from_dict(bootstrap_static()["elements"])
 
@@ -108,16 +110,16 @@ def player_pool() -> T.List[structures.Player]:
 
     # Only pick candidates that are above averge in their position.
     pool_gkp = pool_pd[pool_pd["position"] == "GKP"]
-    pool_gkp = pool_gkp.loc[pool_gkp["score"] > np.quantile(pool_gkp["score"], 0.25)]
+    pool_gkp = pool_gkp.loc[pool_gkp["score"] > np.quantile(pool_gkp["score"], quantile)]
 
     pool_def = pool_pd[pool_pd["position"] == "DEF"]
-    pool_def = pool_def.loc[pool_def["score"] > np.quantile(pool_def["score"], 0.25)]
+    pool_def = pool_def.loc[pool_def["score"] > np.quantile(pool_def["score"], quantile)]
 
     pool_mid = pool_pd[pool_pd["position"] == "MID"]
-    pool_mid = pool_mid.loc[pool_mid["score"] > np.quantile(pool_mid["score"], 0.25)]
+    pool_mid = pool_mid.loc[pool_mid["score"] > np.quantile(pool_mid["score"], quantile)]
 
     pool_fwd = pool_pd[pool_pd["position"] == "FWD"]
-    pool_fwd = pool_fwd.loc[pool_fwd["score"] > np.quantile(pool_fwd["score"], 0.25)]
+    pool_fwd = pool_fwd.loc[pool_fwd["score"] > np.quantile(pool_fwd["score"], quantile)]
 
     pool_pd = pd.concat((pool_gkp, pool_def, pool_mid, pool_fwd))
 

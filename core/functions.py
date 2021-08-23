@@ -20,15 +20,13 @@ def sigmoid(x, gamma):
     return 1 / (1 + np.exp(-(x - 0.5) * gamma))
 
 
-def sigmoid_averge(
+def caverge(
     samples: T.Sequence[T.Union[float, int]],
 ) -> T.Union[float, int]:
     # By applying this averger we pay more attion
     # to newer values than older values.
-    n = len(samples)
-    weights = [(1 - sigmoid(i / n, 10)) for i in range(n)]
-    sum_w = sum(weights)
-    weights = [i / sum_w for i in weights]
+    weights = np.cos(np.linspace(0, 1, len(samples)) * np.pi / 3)
+    weights /= np.sum(weights)
     return np.average(samples, weights=weights)
 
 
