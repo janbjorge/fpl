@@ -1,4 +1,3 @@
-import functools
 import os
 import typing as T
 
@@ -16,12 +15,12 @@ from core import (
 class ScoreWeight:
     # Weight are applied before the values are
     # sendt to the sigmoid function.
-    difficulty = 5 / 2
-    minutes = 5 / 4
+    difficulty = 3
+    minutes = 1
     total_poins = 5
 
 
-@functools.lru_cache()
+@helpers.file_cache("bootstrap_static")
 def bootstrap_static(url="https://fantasy.premierleague.com/api/bootstrap-static/"):
     return requests.get(url).json()
 
@@ -52,9 +51,10 @@ def element_summary(element_id: int):
 def difficulty(element_id, n=5) -> float:
     # Normalized 0 -> 1, where 0 is easy and 1 is hard, the
     # upcomming match is more importent than a match in a few gameworks.
-    return functions.caverge(
-        tuple(e["difficulty"] / 5 for e in element_summary(element_id)["fixtures"][:n])
+    next_n = tuple(
+        1 - (e["difficulty"] / 5) for e in element_summary(element_id)["fixtures"][:n]
     )
+    return functions.caverge(next_n)
 
 
 def history(element_id: int):
@@ -95,7 +95,7 @@ def player_pool(
 
     # The "difficulty" function returls difficulty from 0 -> 1
     # we want players with a low difficulty to have an advantaged
-    pool_pd["difficulty"] = 1 - pool_pd.id.apply(difficulty)
+    pool_pd["difficulty"] = pool_pd.id.apply(difficulty)
     pool_pd["minutes_history"] = pool_pd.id.apply(minutes_history)
     pool_pd["total_points_history"] = pool_pd.id.apply(total_points_history)
 
@@ -141,7 +141,7 @@ def player_pool(
     ]
 
 
-@functools.lru_cache()
+@helpers.file_cache("my_team")
 def my_team(
     login="https://users.premierleague.com/accounts/login/",
     redirect_uri="https://fantasy.premierleague.com/a/login",

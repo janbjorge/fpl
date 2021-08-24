@@ -26,7 +26,7 @@ def caverge(
     # By applying this averger we pay more attion
     # to newer values than older values.
     weights = np.cos(np.linspace(0, 1, len(samples)) * np.pi / 3)
-    weights /= np.sum(weights)
+    weights /= weights.sum()
     return np.average(samples, weights=weights)
 
 

@@ -151,17 +151,13 @@ def lineup(
     max_score_mid_fwd = max_score_mid + max_score_fwd
     max_score_def_mid_fwd = max_score_def + max_score_mid + max_score_fwd
 
-    best_score = 0
     best_lineup = list()
     buget_lower = buget * 0.9
-    score_lower = (
-        sum((max_score_gkp, max_score_def, max_score_mid, max_score_fwd)) * 0.9
-    )
+    best_score = sum((max_score_gkp, max_score_def, max_score_mid, max_score_fwd)) * 0.9
 
     print(f"{min_cost_mid=}, {min_cost_fwd=}, {min_cost_mid_fwd=}")
     print(f"{max_score_mid=}, {max_score_fwd=}, {max_score_mid_fwd=}")
     print(f"{m_gkps=}, {m_defs=}, {m_mids=}, {m_fwds=}")
-    print(f"{score_lower=}")
 
     def lvl0(c):
         return (
@@ -169,7 +165,6 @@ def lineup(
             <= functions.lineup_cost(c)
             <= buget - min_cost_def_mid_fwd
             and functions.lineup_score(c) + max_score_def_mid_fwd > best_score
-            and functions.lineup_score(c) + max_score_def_mid_fwd > score_lower
             and constraints.team_constraint(c)
         )
 
@@ -179,7 +174,6 @@ def lineup(
             <= functions.lineup_cost(c)
             <= buget - min_cost_mid_fwd
             and functions.lineup_score(c) + max_score_mid_fwd > best_score
-            and functions.lineup_score(c) + max_score_mid_fwd > score_lower
             and constraints.team_constraint(c)
             and constraints.gkp_def_not_same_team(c)
         )
@@ -190,7 +184,6 @@ def lineup(
             <= functions.lineup_cost(c)
             <= buget - min_cost_fwd
             and functions.lineup_score(c) + max_score_fwd > best_score
-            and functions.lineup_score(c) + max_score_fwd > score_lower
             and constraints.team_constraint(c)
         )
 
@@ -198,7 +191,6 @@ def lineup(
         return (
             functions.lineup_cost(c) <= buget
             and functions.lineup_score(c) > best_score
-            and functions.lineup_score(c) > score_lower
             and constraints.team_constraint(c)
         )
 
@@ -246,6 +238,9 @@ def transfers(
 
     old_lineup_cost = functions.lineup_cost(old)
     pool = list(set(pool) - set(old))
+
+    pool = sorted(pool, key=lambda p: p.score, reverse=True)
+    old = sorted(old, key=lambda p: p.score, reverse=True)
 
     @functools.lru_cache(maxsize=len(pool) * len(old))
     def tp(old, new):
