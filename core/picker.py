@@ -1,6 +1,5 @@
 import argparse
 import itertools
-import shutil
 import functools
 import typing as T
 
@@ -12,7 +11,6 @@ from core import (
     constraints,
     functions,
     gather,
-    helpers,
     structures,
 )
 
@@ -301,10 +299,10 @@ def argument_parser():
         help="Enables verbose mode.",
     )
     parser.add_argument(
-        "-p",
-        "--prune",
+        "-r",
+        "--refresh",
         action="store_true",
-        help="Clear local cache",
+        help="Refreshes locally cached FPL APIs.",
     )
 
     sub_parsers = parser.add_subparsers(dest="mode", required=True)
@@ -368,10 +366,8 @@ def argument_parser():
 def main():
     parsed = argument_parser()
 
-    if parsed.prune and helpers.CACHE_FOLDER.exists():
-        print(f"Clearing cache: {helpers.CACHE_FOLDER}")
-        shutil.rmtree(helpers.CACHE_FOLDER)
-        print(f"Clearing cache: {helpers.CACHE_FOLDER} - done")
+    if parsed.refresh:
+        gather.refresh()
 
     if parsed.mode == "transfer":
         old = gather.team()

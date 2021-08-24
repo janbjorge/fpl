@@ -1,4 +1,6 @@
+import concurrent.futures
 import os
+import shutil
 import typing as T
 
 import numpy as np
@@ -207,3 +209,18 @@ def team():
         )
         for _, row in picks.iterrows()
     ]
+
+
+def refresh():
+
+    if helpers.CACHE_FOLDER.exists():
+        print(f"Clearing cache: {helpers.CACHE_FOLDER}")
+        shutil.rmtree(helpers.CACHE_FOLDER)
+        print(f"Clearing cache: {helpers.CACHE_FOLDER} - done")
+
+    # Run all the functions that do external calls.
+    print(f"Refreshing: {helpers.CACHE_FOLDER}")
+    with concurrent.futures.ThreadPoolExecutor(max_workers=32) as wp:
+        wp.map(element_summary, [e["id"] for e in bootstrap_static()["elements"]])
+        wp.map(my_team)
+    print(f"Refreshing: {helpers.CACHE_FOLDER} - done")
