@@ -68,9 +68,7 @@ def total_points_history(element_id: int) -> float:
 
 
 def minutes_history(element_id: int) -> float:
-    return functions.caverge(
-        tuple(h["minutes"] for h in reversed(history(element_id)))
-    )
+    return functions.caverge(tuple(h["minutes"] for h in reversed(history(element_id))))
 
 
 def score(df: pd.DataFrame) -> pd.Series:
@@ -106,20 +104,27 @@ def player_pool(
 
     # Scores players.
     pool_pd["score"] = score(pool_pd)
-    pool_pd["score"] = pool_pd.score.apply(lambda x: round(x, 5))
 
     # Only pick candidates that are above averge in their position.
     pool_gkp = pool_pd[pool_pd["position"] == "GKP"]
-    pool_gkp = pool_gkp.loc[pool_gkp["score"] > np.quantile(pool_gkp["score"], quantile)]
+    pool_gkp = pool_gkp.loc[
+        pool_gkp["score"] > np.quantile(pool_gkp["score"], quantile)
+    ]
 
     pool_def = pool_pd[pool_pd["position"] == "DEF"]
-    pool_def = pool_def.loc[pool_def["score"] > np.quantile(pool_def["score"], quantile)]
+    pool_def = pool_def.loc[
+        pool_def["score"] > np.quantile(pool_def["score"], quantile)
+    ]
 
     pool_mid = pool_pd[pool_pd["position"] == "MID"]
-    pool_mid = pool_mid.loc[pool_mid["score"] > np.quantile(pool_mid["score"], quantile)]
+    pool_mid = pool_mid.loc[
+        pool_mid["score"] > np.quantile(pool_mid["score"], quantile)
+    ]
 
     pool_fwd = pool_pd[pool_pd["position"] == "FWD"]
-    pool_fwd = pool_fwd.loc[pool_fwd["score"] > np.quantile(pool_fwd["score"], quantile)]
+    pool_fwd = pool_fwd.loc[
+        pool_fwd["score"] > np.quantile(pool_fwd["score"], quantile)
+    ]
 
     pool_pd = pd.concat((pool_gkp, pool_def, pool_mid, pool_fwd))
 
@@ -129,7 +134,7 @@ def player_pool(
             team=row.team,
             position=row.position,
             cost=row.now_cost,
-            score=row.score,
+            score=round(row.score, 5),
             points=row.total_points,
         )
         for _, row in pool_pd.iterrows()
@@ -190,7 +195,6 @@ def team():
 
     # Scores players.
     picks["score"] = score(picks)
-    picks["score"] = picks.score.apply(lambda x: round(x, 5))
 
     return [
         structures.Player(
@@ -198,7 +202,7 @@ def team():
             team=row.team,
             position=row.position,
             cost=row.now_cost,
-            score=row.score,
+            score=round(row.score, 5),
             points=row.total_points,
         )
         for _, row in picks.iterrows()

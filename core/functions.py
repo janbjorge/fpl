@@ -34,15 +34,15 @@ def lineup_cost(
     lineup: T.List[structures.Player],
     acc=sum,
 ):
-    return acc(player.cost for player in lineup)
+    return round(acc(player.cost for player in lineup), 5)
 
 
 def lineup_score(lineup: T.List[structures.Player], acc=sum):
-    return acc(player.score for player in lineup)
+    return round(acc(player.score for player in lineup), 5)
 
 
 def xPtt(lineup: T.List[structures.Player], acc=sum) -> float:
-    return acc(p.points for p in lineup)
+    return round(acc(p.points for p in lineup), 5)
 
 
 def grp_by_cost(
@@ -114,6 +114,9 @@ def tprint(
     change_new_old = sorted(
         set(new).difference(old), key=lambda n: (n.position, n.name)
     )
+
+    if not change_old_new or not change_new_old:
+        return
 
     rs = len(str(max(change_old_new, key=lambda s: len(str(s)))))
 

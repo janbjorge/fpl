@@ -1,8 +1,7 @@
 import argparse
 import itertools
-import pathlib
 import shutil
-import statistics
+import functools
 import typing as T
 
 from tqdm import (
@@ -155,7 +154,9 @@ def lineup(
     best_score = 0
     best_lineup = list()
     buget_lower = buget * 0.9
-    score_lower = sum((max_score_gkp, max_score_def, max_score_mid, max_score_fwd)) * 0.9
+    score_lower = (
+        sum((max_score_gkp, max_score_def, max_score_mid, max_score_fwd)) * 0.9
+    )
 
     print(f"{min_cost_mid=}, {min_cost_fwd=}, {min_cost_mid_fwd=}")
     print(f"{max_score_mid=}, {max_score_fwd=}, {max_score_mid_fwd=}")
@@ -246,6 +247,11 @@ def transfers(
     old_lineup_cost = functions.lineup_cost(old)
     pool = list(set(pool) - set(old))
 
+    @functools.lru_cache(maxsize=len(pool) * len(old))
+    def tp(old, new):
+        functions.tprint(old, new)
+        print("-" * 100)
+
     def _transfers(
         current: T.List[structures.Player],
         best: T.List[structures.Player],
@@ -282,8 +288,9 @@ def transfers(
 
                 best = new.copy()
                 if verbose:
-                    print("-" * 100)
-                    functions.sprint(best)
+                    if set(old) == set(best):
+                        continue
+                    tp(tuple(old), tuple(best))
 
         return best
 
