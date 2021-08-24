@@ -14,14 +14,6 @@ from core import (
 )
 
 
-class ScoreWeight:
-    # Weight are applied before the values are
-    # sendt to the sigmoid function.
-    difficulty = 3
-    minutes = 1
-    total_poins = 5
-
-
 @helpers.file_cache("bootstrap_static")
 def bootstrap_static(url="https://fantasy.premierleague.com/api/bootstrap-static/"):
     return requests.get(url).json()
@@ -75,11 +67,9 @@ def minutes_history(element_id: int) -> float:
 
 def score(df: pd.DataFrame) -> pd.Series:
     return (
-        functions.sigmoid(
-            functions.norm(df.total_points_history), ScoreWeight.total_poins
-        )
-        * functions.sigmoid(functions.norm(df.minutes_history), ScoreWeight.minutes)
-        * functions.sigmoid(df.difficulty, ScoreWeight.difficulty)
+        functions.hyper_sigmoid(functions.norm(df.total_points_history)) *
+        functions.hyper_sigmoid(functions.norm(df.minutes_history)) * 
+        functions.hyper_sigmoid(df.difficulty)
     )
 
 

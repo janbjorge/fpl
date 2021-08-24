@@ -16,8 +16,8 @@ def norm(values):
     return (values - _min) / (_max - _min)
 
 
-def sigmoid(x, gamma):
-    return 1 / (1 + np.exp(-(x - 0.5) * gamma))
+def hyper_sigmoid(x):
+    return 1 / (1 + np.exp(-(x - 0.5) * 10))
 
 
 def caverge(
