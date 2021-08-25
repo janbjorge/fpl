@@ -67,9 +67,9 @@ def minutes_history(element_id: int) -> float:
 
 def score(df: pd.DataFrame) -> pd.Series:
     return (
-        functions.hyper_sigmoid(functions.norm(df.total_points_history)) *
-        functions.hyper_sigmoid(functions.norm(df.minutes_history)) * 
-        functions.hyper_sigmoid(df.difficulty)
+        functions.hyper_sigmoid(functions.norm(df.total_points_history))
+        * functions.hyper_sigmoid(functions.norm(df.minutes_history))
+        * functions.hyper_sigmoid(df.difficulty)
     )
 
 

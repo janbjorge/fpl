@@ -76,6 +76,10 @@ def top_n_score_by_cost_by_positions(
 
 
 def lprint(lineup: T.List[structures.Player]) -> None:
+
+    if not lineup:
+        return
+
     for pos in gather.positions():
         pos_players = sorted(
             (p for p in lineup if p.position == pos),
@@ -90,6 +94,10 @@ def lprint(lineup: T.List[structures.Player]) -> None:
 
 
 def sprint(pool: T.List[structures.Player]) -> None:
+
+    if not pool:
+        return
+
     print(
         f"score: {lineup_score(pool)}, cost: {lineup_cost(pool)}, xP(TP): {xPtt(pool)}"
     )

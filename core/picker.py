@@ -48,7 +48,7 @@ def lineup(
         (p for p in pool if p.position == "FWD"), key=lambda p: p.score, reverse=True
     )
 
-    m_gkps, m_defs, m_mids, m_fwds = [set(m) for m in base]
+    m_gkps, m_defs, m_mids, m_fwds = tuple(set(m) for m in base)
 
     for m_gkp in m_gkps:
         if m_gkp not in set(g.name for g in _gkp):
@@ -75,7 +75,7 @@ def lineup(
 
     def _def_combinations():
         yield from filter(
-            lambda d: constraints.position_constraint(d, 1, "DEF")
+            lambda d: constraints.position_constraint(d, 2, "DEF")
             and constraints.must_contain(d, m_defs),
             itertools.combinations(_def, 5),
         )
@@ -95,17 +95,34 @@ def lineup(
         )
 
     gkp_combinations = tuple(
-        sorted(_gkp_combinations(), key=functions.lineup_score, reverse=False)
+        sorted(_gkp_combinations(), key=functions.lineup_score, reverse=True)
     )
     def_combinations = tuple(
-        sorted(_def_combinations(), key=functions.lineup_score, reverse=False)
+        sorted(_def_combinations(), key=functions.lineup_score, reverse=True)
     )
     mid_combinations = tuple(
-        sorted(_mid_combinations(), key=functions.lineup_score, reverse=False)
+        sorted(_mid_combinations(), key=functions.lineup_score, reverse=True)
     )
     fwd_combinations = tuple(
-        sorted(_fwd_combinations(), key=functions.lineup_score, reverse=False)
+        sorted(_fwd_combinations(), key=functions.lineup_score, reverse=True)
     )
+
+    total = (
+        len(gkp_combinations)
+        * len(def_combinations)
+        * len(mid_combinations)
+        * len(fwd_combinations)
+    )
+
+    print(f"Goalkeeper combinations: {len(gkp_combinations)}")
+    print(f"Defender combinations:   {len(def_combinations)}")
+    print(f"Midfielder combinations: {len(mid_combinations)}")
+    print(f"Forwarder combinations:  {len(fwd_combinations)}")
+    print(f"Total combinations:      {total:.1e}")
+
+    if total == 0:
+        print("--> Zero combinations to evaluate.")
+        return []
 
     min_cost_def = functions.lineup_cost(
         min(gkp_combinations, key=functions.lineup_cost)
@@ -149,13 +166,15 @@ def lineup(
     max_score_mid_fwd = max_score_mid + max_score_fwd
     max_score_def_mid_fwd = max_score_def + max_score_mid + max_score_fwd
 
-    best_lineup = list()
+    best_lineup = []
     buget_lower = buget * 0.9
     best_score = sum((max_score_gkp, max_score_def, max_score_mid, max_score_fwd)) * 0.9
+    step = len(mid_combinations) * len(fwd_combinations)
 
-    print(f"{min_cost_mid=}, {min_cost_fwd=}, {min_cost_mid_fwd=}")
-    print(f"{max_score_mid=}, {max_score_fwd=}, {max_score_mid_fwd=}")
-    print(f"{m_gkps=}, {m_defs=}, {m_mids=}, {m_fwds=}")
+    if verbose:
+        print(f"{min_cost_mid=}, {min_cost_fwd=}, {min_cost_mid_fwd=}")
+        print(f"{max_score_mid=}, {max_score_fwd=}, {max_score_mid_fwd=}")
+        print(f"{m_gkps=}, {m_defs=}, {m_mids=}, {m_fwds=}")
 
     def lvl0(c):
         return (
@@ -191,14 +210,6 @@ def lineup(
             and functions.lineup_score(c) > best_score
             and constraints.team_constraint(c)
         )
-
-    total = (
-        len(gkp_combinations)
-        * len(def_combinations)
-        * len(mid_combinations)
-        * len(fwd_combinations)
-    )
-    step = len(mid_combinations) * len(fwd_combinations)
 
     with tqdm(
         total=total,
@@ -304,6 +315,12 @@ def argument_parser():
         action="store_true",
         help="Refreshes locally cached FPL APIs.",
     )
+    parser.add_argument(
+        "-i",
+        "--ignore",
+        default=[],
+        help="Remove player(s) from the candidates pool.",
+    )
 
     sub_parsers = parser.add_subparsers(dest="mode", required=True)
 
@@ -349,6 +366,13 @@ def argument_parser():
         help="Forwards (FPL web-name) tha must be in the lineup.",
         default=[],
     )
+    lineup_parser.add_argument(
+        "-b",
+        "--buget",
+        help="The sice of your buget, defualt is: 100.",
+        default=1_00,
+        type=float,
+    )
 
     print_parser = sub_parsers.add_parser(
         "print",
@@ -369,10 +393,15 @@ def main():
     if parsed.refresh:
         gather.refresh()
 
+    pool = functions.top_n_score_by_cost_by_positions(gather.player_pool())
+    for drop in (p for p in pool if p.name in parsed.ignore):
+        if drop in pool:
+            pool.remove(drop)
+
     if parsed.mode == "transfer":
         old = gather.team()
         new = transfers(
-            pool=functions.top_n_score_by_cost_by_positions(gather.player_pool()),
+            pool=pool,
             old=old,
             max_transfers=parsed.max,
             verbose=parsed.verbose,
@@ -382,8 +411,9 @@ def main():
     elif parsed.mode == "lineup":
         functions.sprint(
             lineup(
-                pool=functions.top_n_score_by_cost_by_positions(gather.player_pool()),
+                pool=pool,
                 verbose=parsed.verbose,
+                buget=int(parsed.buget * 10),
                 base=(
                     tuple(parsed.goalkeepers),
                     tuple(parsed.defenders),
@@ -397,9 +427,7 @@ def main():
         if parsed.show == "team":
             functions.sprint(gather.team())
         elif parsed.show == "pool":
-            functions.lprint(
-                functions.top_n_score_by_cost_by_positions(gather.player_pool()),
-            )
+            functions.lprint(pool)
 
 
 if __name__ == "__main__":

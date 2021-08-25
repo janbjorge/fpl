@@ -10,7 +10,7 @@ from collections import (
 from core.structures import Player
 
 
-def team_constraint(lineup: List[Player], n=2):
+def team_constraint(lineup: List[Player], n=3):
     count = Counter(p.team for p in lineup)
     return max(count.values()) <= n
 
@@ -27,10 +27,9 @@ def position_constraint(
 def gkp_def_not_same_team(
     lineup: List[Player],
 ) -> bool:
-    count = Counter(
-        p.team for p in lineup if p.position == "GKP" or p.position == "DEF"
-    )
-    return max(count.values()) <= 1
+    _gkps = set(p.team for p in lineup if p.position == "GKP")
+    _defs = set(p.team for p in lineup if p.position == "DEF")
+    return not bool(_gkps.intersection(_defs))
 
 
 def must_contain(
