@@ -14,7 +14,7 @@ def file_cache(postfix: str):
 
         folder = CACHE_FOLDER / postfix
 
-        @functools.wraps(f)
+        @functools.lru_cache(maxsize=None)
         def inner(*args, **kw):
             key = functools._make_key(args, kw, typed=False)
             cache = folder / f"{key}.json"
