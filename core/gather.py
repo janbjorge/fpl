@@ -1,9 +1,9 @@
 import concurrent.futures
+import dateutil.parser
 import os
 import shutil
 import typing as T
 
-import numpy as np
 import pandas as pd
 import requests
 
@@ -19,6 +19,33 @@ def bootstrap_static(url="https://fantasy.premierleague.com/api/bootstrap-static
     return requests.get(url).json()
 
 
+@helpers.file_cache("gameweek")
+def gameweek(
+    round: int,
+    url="https://fantasy.premierleague.com/api/fixtures/",
+):
+    return requests.get(url, params={"event": round}).json()
+
+
+def matchups(
+    round: int,
+) -> T.Tuple[T.Tuple[str, str], ...]:
+    def _key(row):
+        return (
+            dateutil.parser.parse(row["kickoff_time"]),
+            row["team_h"],
+            row["team_a"],
+        )
+
+    return tuple(
+        (
+            team_id_team_name(fixture["team_h"]),
+            team_id_team_name(fixture["team_a"]),
+        )
+        for fixture in sorted(gameweek(round), key=_key)
+    )
+
+
 def positions():
     yield from ("GKP", "DEF", "MID", "FWD")
 
@@ -26,6 +53,12 @@ def positions():
 def team_name(team_code):
     for team in bootstrap_static()["teams"]:
         if team["code"] == team_code:
+            return team["short_name"]
+
+
+def team_id_team_name(team_id):
+    for team in bootstrap_static()["teams"]:
+        if team["id"] == team_id:
             return team["short_name"]
 
 

@@ -67,7 +67,6 @@ def players() -> T.List[Player]:
 
 @functools.lru_cache(maxsize=None)
 def teams() -> T.Tuple[Team, ...]:
-
     def _inner():
         for t in set(p.team for p in players()):
             yield Team(
@@ -96,7 +95,12 @@ def match(
 
 
 def gameweek(round: int):
-    return
+    for h, a in gather.matchups(round):
+        (hn, hg), (an, ag) = match(
+            Team(h, [p for p in players() if p.team == h]),
+            Team(a, [p for p in players() if p.team == a]),
+        )
+        print(f"{hn} - {an} ({hg} - {ag})")
 
 
 def all_v_all():
@@ -116,7 +120,5 @@ def all_v_all():
             c[hn] += 1
             c[an] += 1
 
-    for team, porints in c.most_common(len(c)):
-        print(team, porints)
-
-
+    for pos, (team, points) in enumerate(c.most_common(len(c)), start=1):
+        print(f"{pos:>2}) {team} - {points}")
