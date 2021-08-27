@@ -25,6 +25,8 @@ def caverge(
 ) -> T.Union[float, int]:
     # By applying this averger we pay more attion
     # to newer values than older values.
+    if not samples:
+        return 0
     weights = np.cos(np.linspace(0, 1, len(samples)) * np.pi / 3)
     weights /= weights.sum()
     return np.average(samples, weights=weights)

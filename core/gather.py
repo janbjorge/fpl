@@ -73,9 +73,7 @@ def score(df: pd.DataFrame) -> pd.Series:
     )
 
 
-def player_pool(
-    quantile: float = 0.25,
-) -> T.List[structures.Player]:
+def player_pool() -> T.List[structures.Player]:
 
     pool_pd = pd.DataFrame.from_dict(bootstrap_static()["elements"])
 
@@ -94,31 +92,10 @@ def player_pool(
     pool_pd = pool_pd[pool_pd["minutes_history"] > 0]
     pool_pd = pool_pd[pool_pd["total_points_history"] > 0]
 
+    pool_pd["selected_by_percent"] = pool_pd.selected_by_percent.apply(float) / 100.0
+
     # Scores players.
     pool_pd["score"] = score(pool_pd)
-
-    # Only pick candidates that are above averge in their position.
-    pool_gkp = pool_pd[pool_pd["position"] == "GKP"]
-    pool_gkp = pool_gkp.loc[
-        pool_gkp["score"] > np.quantile(pool_gkp["score"], quantile)
-    ]
-
-    pool_def = pool_pd[pool_pd["position"] == "DEF"]
-    pool_def = pool_def.loc[
-        pool_def["score"] > np.quantile(pool_def["score"], quantile)
-    ]
-
-    pool_mid = pool_pd[pool_pd["position"] == "MID"]
-    pool_mid = pool_mid.loc[
-        pool_mid["score"] > np.quantile(pool_mid["score"], quantile)
-    ]
-
-    pool_fwd = pool_pd[pool_pd["position"] == "FWD"]
-    pool_fwd = pool_fwd.loc[
-        pool_fwd["score"] > np.quantile(pool_fwd["score"], quantile)
-    ]
-
-    pool_pd = pd.concat((pool_gkp, pool_def, pool_mid, pool_fwd))
 
     return [
         structures.Player(

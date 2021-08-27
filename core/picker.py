@@ -243,6 +243,7 @@ def transfers(
     old: T.List[structures.Player],
     max_transfers: int,
     verbose: bool = False,
+    out: T.List[str] = [],
 ) -> T.List[structures.Player]:
 
     old_lineup_cost = functions.lineup_cost(old)
@@ -264,6 +265,11 @@ def transfers(
 
         if n_transfers > max_transfers:
             raise InvalidLineup
+
+        if n_transfers > 0:
+            for p in current:
+                if p.name in out:
+                    raise InvalidLineup
 
         if n_transfers == max_transfers:
             if (
@@ -315,12 +321,6 @@ def argument_parser():
         action="store_true",
         help="Refreshes locally cached FPL APIs.",
     )
-    parser.add_argument(
-        "-i",
-        "--ignore",
-        default=[],
-        help="Remove player(s) from the candidates pool.",
-    )
 
     sub_parsers = parser.add_subparsers(dest="mode", required=True)
 
@@ -333,6 +333,20 @@ def argument_parser():
         nargs="?",
         default=2,
         help="Number of allowed transfers.",
+    )
+    transfer_parser.add_argument(
+        "-i",
+        "--ignore",
+        nargs="+",
+        default=[],
+        help="Remove player(s) from the candidates pool.",
+    )
+    transfer_parser.add_argument(
+        "-o",
+        "--out",
+        nargs="+",
+        default=[],
+        help="Force player(s) out of the lineup.",
     )
 
     lineup_parser = sub_parsers.add_parser(
@@ -373,6 +387,13 @@ def argument_parser():
         default=1_00,
         type=float,
     )
+    lineup_parser.add_argument(
+        "-i",
+        "--ignore",
+        nargs="+",
+        default=[],
+        help="Remove player(s) from the candidates pool.",
+    )
 
     print_parser = sub_parsers.add_parser(
         "print",
@@ -405,6 +426,7 @@ def main():
             old=old,
             max_transfers=parsed.max,
             verbose=parsed.verbose,
+            out=parsed.out,
         )
         functions.tprint(old, new)
 
