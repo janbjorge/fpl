@@ -92,8 +92,6 @@ def player_pool() -> T.List[structures.Player]:
     pool_pd = pool_pd[pool_pd["minutes_history"] > 0]
     pool_pd = pool_pd[pool_pd["total_points_history"] > 0]
 
-    pool_pd["selected_by_percent"] = pool_pd.selected_by_percent.apply(float) / 100.0
-
     # Scores players.
     pool_pd["score"] = score(pool_pd)
 
