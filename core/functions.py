@@ -78,7 +78,7 @@ def lprint(lineup: T.List[structures.Player]) -> None:
     for pos in gather.positions():
         pos_players = sorted(
             (p for p in lineup if p.position == pos),
-            key=lambda p: p.points,
+            key=lambda p: p.xP,
             reverse=True,
         )
         header(pos_players, prefix=f"{pos}(n={len(pos_players)}, ", postfix=")")
@@ -88,7 +88,7 @@ def lprint(lineup: T.List[structures.Player]) -> None:
 
 def header(pool: T.List[structures.Player], prefix="", postfix="") -> None:
     print(
-        f"{prefix}cost: {lineup_cost(pool)}, TP: {lineup_xp(pool)}, xP(TP): {lineup_tp(pool)}{postfix}"
+        f"{prefix}cost: {lineup_cost(pool)}, TP: {lineup_tp(pool)}, xP: {lineup_xp(pool)}{postfix}"
     )
 
 
@@ -104,9 +104,6 @@ def tprint(
     new: T.List[structures.Player],
 ) -> None:
 
-    header(old, prefix="old: ")
-    header(new, prefix="new: ")
-
     change_old_new = sorted(
         set(old).difference(new), key=lambda n: (n.position, n.name)
     )
@@ -117,6 +114,9 @@ def tprint(
     if not change_old_new or not change_new_old:
         return
 
+    header(old, prefix="old: ")
+    header(new, prefix="new: ")
+
     rs = len(str(max(change_old_new, key=lambda s: len(str(s)))))
 
     for o, n in zip(change_old_new, change_new_old):
@@ -126,10 +126,8 @@ def tprint(
 def xP(
     tp: int,
     opponents: structures.Samples,
-    gmw: int
+    gmw: int,
 ) -> float:
-    # TODO: Is this correct?
-    assert gmw > 0
-    return round((opponents.caverge_historical * tp) / (
-        opponents.caverge_future * gmw
-    ), 1)
+    return round(
+        (opponents.caverge_historical * tp) / (opponents.caverge_future * gmw), 1
+    )
