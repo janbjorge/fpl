@@ -28,6 +28,13 @@ def gameweek(
     return requests.get(url, params={"event": round}).json()
 
 
+def current_gameweek() -> int:
+    for event in bootstrap_static()["events"]:
+        if event["is_current"]:
+            return event["id"] + 1
+    raise ValueError
+
+
 def matchups(
     round: int,
 ) -> T.Tuple[T.Tuple[str, str], ...]:
@@ -101,24 +108,28 @@ def player_pool(
     pool_pd["position"] = pool_pd["element_type"].apply(position)
     pool_pd["team"] = pool_pd["team_code"].apply(team_name)
 
-    return functions.top_n_xp_by_cost_by_positions(
-        [
-            structures.Player(
-                name=row.web_name,
-                team=row.team,
-                position=row.position,
-                cost=row.now_cost,
-                points=row.total_points,
-                xP=functions.xP(
-                    tp=row.total_points,
-                    opponents=opponent_strength(row.web_name),
-                    gmw=4,
-                ),
-            )
-            for _, row in pool_pd.iterrows()
-        ],
-        cutoff=cutoff,
-    )
+    return [
+        p
+        for p in functions.top_n_xp_by_cost_by_positions(
+            [
+                structures.Player(
+                    name=row.web_name,
+                    team=row.team,
+                    position=row.position,
+                    cost=row.now_cost,
+                    points=row.total_points,
+                    xP=functions.xP(
+                        tp=row.total_points,
+                        opponents=opponent_strength(row.web_name),
+                        gmw=current_gameweek(),
+                    ),
+                )
+                for _, row in pool_pd.iterrows()
+            ],
+            cutoff=cutoff,
+        )
+        if p.xP > 0
+    ]
 
 
 @helpers.file_cache("my_team")
@@ -177,7 +188,7 @@ def team():
             xP=functions.xP(
                 tp=row.total_points,
                 opponents=opponent_strength(row.web_name),
-                gmw=4,
+                gmw=current_gameweek(),
             ),
         )
         for _, row in picks.iterrows()
@@ -198,7 +209,7 @@ def refresh():
         wp.map(my_team)
     print(f"Refreshing: {helpers.CACHE_FOLDER} - done")
 
-    for folder, url in (
+    historic = (
         (
             pathlib.Path("data/2019_2020"),
             "https://raw.githubusercontent.com/vaastav/Fantasy-Premier-League/master/data/2019-20/gws/merged_gw.csv",
@@ -223,14 +234,18 @@ def refresh():
             pathlib.Path("data/2021_2022"),
             "https://raw.githubusercontent.com/vaastav/Fantasy-Premier-League/master/data/2021-22/teams.csv",
         ),
-    ):
+    )
+
+    rs = max(len(url) for *_, url in historic)
+
+    for folder, url in historic:
 
         if not folder.exists():
             folder.mkdir(parents=True, exist_ok=True)
 
         *_, name = url.split("/")
         file = folder / name
-        print(f"Fetching: {url} -> {file}")
+        print(f"{str(url):<{rs}} => {str(folder):>2}")
         csv = pd.read_csv(url)
         csv.to_csv(file)
 
@@ -243,17 +258,21 @@ def opponent_strength(
     folder=pathlib.Path("data"),
 ) -> structures.Samples:
 
+    # Obs. remember that the "most" significant sample
+    # should be at `0`, thus newer samples should be at an
+    # lower index than "old" samples.
     historical: T.List[T.Union[int, float]] = []
 
     # Data from session 2019/2020, 2020/2021 and 2021/2022
-    for fold in folder.glob("*_*/"):
+    for fold in sorted(folder.glob("*_*/"), reverse=True):
 
         teams = helpers.cached_pd_csv(fold / "teams.csv")
-        merged = helpers.cached_pd_csv(fold / "merged_gw.csv")
+        merged_gw = helpers.cached_pd_csv(fold / "merged_gw.csv")
+        player_gws = merged_gw.loc[merged_gw.name.str.contains(player)]
 
-        merged = merged[merged.name.str.contains(player)]
-        for _, row in merged.iterrows():
-            historical.append(int(teams[teams.id == row.opponent_team].strength))
+        merged = player_gws.merge(teams, left_on="opponent_team", right_on="id")
+        merged.sort_values("GW", inplace=True, ascending=False)
+        historical.extend(merged.strength.values)
 
     return structures.Samples(
         historical=historical,
