@@ -10,16 +10,6 @@ from core import (
 )
 
 
-def norm(values):
-    _min = values.min()
-    _max = values.max()
-    return (values - _min) / (_max - _min)
-
-
-def hyper_sigmoid(x):
-    return 1 / (1 + np.exp(-(x - 0.5) * 10))
-
-
 def caverge(
     samples: T.Sequence[T.Union[float, int]],
 ) -> T.Union[float, int]:
@@ -39,40 +29,43 @@ def lineup_cost(
     return round(acc(player.cost for player in lineup), 5)
 
 
-def lineup_score(lineup: T.List[structures.Player], acc=sum):
-    return round(acc(player.score for player in lineup), 5)
+def lineup_xp(
+    lineup: T.List[structures.Player],
+    acc=sum,
+) -> float:
+    return round(acc(p.xP for p in lineup), 1)
 
 
-def xPtt(lineup: T.List[structures.Player], acc=sum) -> float:
-    return round(acc(p.points for p in lineup), 5)
+def lineup_tp(lineup: T.List[structures.Player], acc=sum) -> float:
+    return round(acc(p.points for p in lineup), 1)
 
 
 def grp_by_cost(
-    lineup: T.List[structures.Player],
+    pool: T.List[structures.Player],
 ) -> T.DefaultDict[int, T.List[structures.Player]]:
     grp = collections.defaultdict(list)
-    for p in lineup:
+    for p in pool:
         grp[p.cost].append(p)
     return grp
 
 
-def top_n_score_by_cost(
-    lineup: T.List[structures.Player],
-    n: int = 3,
+def top_n_xp_by_cost(
+    pool: T.List[structures.Player],
+    n,
 ) -> T.List[T.List[structures.Player]]:
     return [
-        sorted(v, key=lambda v: v.score, reverse=True)[:n]
-        for v in grp_by_cost(lineup).values()
+        sorted(v, key=lambda v: v.xP, reverse=True)[:n]
+        for v in grp_by_cost(pool).values()
     ]
 
 
-def top_n_score_by_cost_by_positions(
+def top_n_xp_by_cost_by_positions(
     pool: T.List[structures.Player],
-    cutoff: T.Tuple[int, int, int, int] = (2, 4, 4, 2),
+    cutoff: T.Tuple[int, int, int, int] = (2, 3, 3, 2),
 ) -> T.List[structures.Player]:
     new = []
     for n, pos in zip(cutoff, gather.positions()):
-        d = top_n_score_by_cost([p for p in pool if p.position == pos], n=n)
+        d = top_n_xp_by_cost([p for p in pool if p.position == pos], n=n)
         new.extend(helpers.flatten(d))
     return new
 
@@ -85,24 +78,24 @@ def lprint(lineup: T.List[structures.Player]) -> None:
     for pos in gather.positions():
         pos_players = sorted(
             (p for p in lineup if p.position == pos),
-            key=lambda p: p.score,
+            key=lambda p: p.points,
             reverse=True,
         )
-        print(
-            f"{pos}(n={len(pos_players)}, score={lineup_score(pos_players)}, cost={lineup_cost(pos_players)})"
-        )
+        header(pos_players, prefix=f"{pos}(n={len(pos_players)}, ", postfix=")")
         for player in pos_players:
             print(f" {player}")
 
 
-def sprint(pool: T.List[structures.Player]) -> None:
+def header(pool: T.List[structures.Player], prefix="", postfix="") -> None:
+    print(
+        f"{prefix}cost: {lineup_cost(pool)}, TP: {lineup_xp(pool)}, xP(TP): {lineup_tp(pool)}{postfix}"
+    )
 
+
+def sprint(pool: T.List[structures.Player]) -> None:
     if not pool:
         return
-
-    print(
-        f"score: {lineup_score(pool)}, cost: {lineup_cost(pool)}, xP(TP): {xPtt(pool)}"
-    )
+    header(pool)
     lprint(pool)
 
 
@@ -111,12 +104,8 @@ def tprint(
     new: T.List[structures.Player],
 ) -> None:
 
-    print(
-        f"old: score: {lineup_score(old)}, cost: {lineup_cost(old)}, xP(TP): {xPtt(old)}"
-    )
-    print(
-        f"new: score: {lineup_score(new)}, cost: {lineup_cost(new)}, xP(TP): {xPtt(new)}"
-    )
+    header(old, prefix="old: ")
+    header(new, prefix="new: ")
 
     change_old_new = sorted(
         set(old).difference(new), key=lambda n: (n.position, n.name)
@@ -132,3 +121,15 @@ def tprint(
 
     for o, n in zip(change_old_new, change_new_old):
         print(f"{str(o):<{rs}} => {str(n):>2}")
+
+
+def xP(
+    tp: int,
+    opponents: structures.Samples,
+    gmw: int
+) -> float:
+    # TODO: Is this correct?
+    assert gmw > 0
+    return round((opponents.caverge_historical * tp) / (
+        opponents.caverge_future * gmw
+    ), 1)

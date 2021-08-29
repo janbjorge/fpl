@@ -2,11 +2,15 @@ import functools
 import itertools
 import json
 import pathlib
-import typing
+import typing as T
+
+import numpy as np
+import pandas as pd
 
 
 CACHE_FOLDER = pathlib.Path("./.file_cache/")
-E = typing.TypeVar("E")
+E = T.TypeVar("E")
+NUMBER = T.Union[int, float]
 
 
 def file_cache(postfix: str):
@@ -36,5 +40,22 @@ def file_cache(postfix: str):
     return outer
 
 
-def flatten(t: typing.List[typing.List[E]]) -> typing.List[E]:
+def flatten(t: T.List[T.List[E]]) -> T.List[E]:
     return list(itertools.chain(*t))
+
+
+@functools.lru_cache(maxsize=None)
+def cached_pd_csv(path: pathlib.Path) -> pd.DataFrame:
+    return pd.read_csv(path)
+
+
+def caverge(
+    samples: T.Sequence[T.Union[float, int]],
+) -> T.Union[float, int]:
+    # By applying this averger we pay more attion
+    # to newer values than older values.
+    if not samples:
+        return 0
+    weights = np.cos(np.linspace(0, 1, len(samples)) * np.pi / 3)
+    weights /= weights.sum()
+    return np.average(samples, weights=weights)

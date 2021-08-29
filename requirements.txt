@@ -2,4 +2,5 @@ numpy
 pandas
 requests
 tqdm
+types-python-dateutil
 types-requests

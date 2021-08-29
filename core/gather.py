@@ -1,6 +1,7 @@
 import concurrent.futures
 import dateutil.parser
 import os
+import pathlib
 import shutil
 import typing as T
 
@@ -75,38 +76,22 @@ def element_summary(element_id: int):
     ).json()
 
 
-def difficulty(element_id, n=5) -> float:
+def name_to_element_id(name: str) -> int:
+    for element in bootstrap_static()["elements"]:
+        if element["web_name"] == name:
+            return element["id"]
+    raise KeyError
+
+
+def difficulty_next_n(element_id, n=5) -> T.List[float]:
     # Normalized 0 -> 1, where 0 is easy and 1 is hard, the
     # upcomming match is more importent than a match in a few gameworks.
-    next_n = tuple(
-        1 - (e["difficulty"] / 5) for e in element_summary(element_id)["fixtures"][:n]
-    )
-    return functions.caverge(next_n)
+    return list((e["difficulty"]) for e in element_summary(element_id)["fixtures"][:n])
 
 
-def history(element_id: int):
-    return element_summary(element_id)["history"]
-
-
-def total_points_history(element_id: int) -> float:
-    return functions.caverge(
-        tuple(h["total_points"] for h in reversed(history(element_id)))
-    )
-
-
-def minutes_history(element_id: int) -> float:
-    return functions.caverge(tuple(h["minutes"] for h in reversed(history(element_id))))
-
-
-def score(df: pd.DataFrame) -> pd.Series:
-    return (
-        functions.hyper_sigmoid(functions.norm(df.total_points_history))
-        * functions.hyper_sigmoid(functions.norm(df.minutes_history))
-        * functions.hyper_sigmoid(df.difficulty)
-    )
-
-
-def player_pool() -> T.List[structures.Player]:
+def player_pool(
+    cutoff: T.Tuple[int, int, int, int] = (2, 3, 3, 2),
+) -> T.List[structures.Player]:
 
     pool_pd = pd.DataFrame.from_dict(bootstrap_static()["elements"])
 
@@ -116,29 +101,24 @@ def player_pool() -> T.List[structures.Player]:
     pool_pd["position"] = pool_pd["element_type"].apply(position)
     pool_pd["team"] = pool_pd["team_code"].apply(team_name)
 
-    # The "difficulty" function returls difficulty from 0 -> 1
-    # we want players with a low difficulty to have an advantaged
-    pool_pd["difficulty"] = pool_pd.id.apply(difficulty)
-    pool_pd["minutes_history"] = pool_pd.id.apply(minutes_history)
-    pool_pd["total_points_history"] = pool_pd.id.apply(total_points_history)
-
-    pool_pd = pool_pd[pool_pd["minutes_history"] > 0]
-    pool_pd = pool_pd[pool_pd["total_points_history"] > 0]
-
-    # Scores players.
-    pool_pd["score"] = score(pool_pd)
-
-    return [
-        structures.Player(
-            name=row.web_name,
-            team=row.team,
-            position=row.position,
-            cost=row.now_cost,
-            score=round(row.score, 5),
-            points=row.total_points,
-        )
-        for _, row in pool_pd.iterrows()
-    ]
+    return functions.top_n_xp_by_cost_by_positions(
+        [
+            structures.Player(
+                name=row.web_name,
+                team=row.team,
+                position=row.position,
+                cost=row.now_cost,
+                points=row.total_points,
+                xP=functions.xP(
+                    tp=row.total_points,
+                    opponents=opponent_strength(row.web_name),
+                    gmw=4,
+                ),
+            )
+            for _, row in pool_pd.iterrows()
+        ],
+        cutoff=cutoff,
+    )
 
 
 @helpers.file_cache("my_team")
@@ -187,23 +167,18 @@ def team():
     ).apply(float)
     picks["web_name"] = picks.element.apply(lambda row: element(row, "web_name"))
 
-    # The "difficulty" function returls difficulty from 0 -> 1
-    # we want players with a low difficulty to have an advantaged
-    picks["difficulty"] = 1 - picks.element.apply(difficulty)
-    picks["minutes_history"] = picks.element.apply(minutes_history)
-    picks["total_points_history"] = picks.element.apply(total_points_history)
-
-    # Scores players.
-    picks["score"] = score(picks)
-
     return [
         structures.Player(
             name=row.web_name,
             team=row.team,
             position=row.position,
             cost=row.now_cost,
-            score=round(row.score, 5),
             points=row.total_points,
+            xP=functions.xP(
+                tp=row.total_points,
+                opponents=opponent_strength(row.web_name),
+                gmw=4,
+            ),
         )
         for _, row in picks.iterrows()
     ]
@@ -222,3 +197,65 @@ def refresh():
         wp.map(element_summary, [e["id"] for e in bootstrap_static()["elements"]])
         wp.map(my_team)
     print(f"Refreshing: {helpers.CACHE_FOLDER} - done")
+
+    for folder, url in (
+        (
+            pathlib.Path("data/2019_2020"),
+            "https://raw.githubusercontent.com/vaastav/Fantasy-Premier-League/master/data/2019-20/gws/merged_gw.csv",
+        ),
+        (
+            pathlib.Path("data/2019_2020"),
+            "https://raw.githubusercontent.com/vaastav/Fantasy-Premier-League/master/data/2019-20/teams.csv",
+        ),
+        (
+            pathlib.Path("data/2020_2021"),
+            "https://raw.githubusercontent.com/vaastav/Fantasy-Premier-League/master/data/2020-21/gws/merged_gw.csv",
+        ),
+        (
+            pathlib.Path("data/2020_2021"),
+            "https://raw.githubusercontent.com/vaastav/Fantasy-Premier-League/master/data/2020-21/teams.csv",
+        ),
+        (
+            pathlib.Path("data/2021_2022"),
+            "https://raw.githubusercontent.com/vaastav/Fantasy-Premier-League/master/data/2021-22/gws/merged_gw.csv",
+        ),
+        (
+            pathlib.Path("data/2021_2022"),
+            "https://raw.githubusercontent.com/vaastav/Fantasy-Premier-League/master/data/2021-22/teams.csv",
+        ),
+    ):
+
+        if not folder.exists():
+            folder.mkdir(parents=True, exist_ok=True)
+
+        *_, name = url.split("/")
+        file = folder / name
+        print(f"Fetching: {url} -> {file}")
+        csv = pd.read_csv(url)
+        csv.to_csv(file)
+
+    print("Refresh - done")
+
+
+def opponent_strength(
+    player: str,
+    n: int = 1,
+    folder=pathlib.Path("data"),
+) -> structures.Samples:
+
+    historical: T.List[T.Union[int, float]] = []
+
+    # Data from session 2019/2020, 2020/2021 and 2021/2022
+    for fold in folder.glob("*_*/"):
+
+        teams = helpers.cached_pd_csv(fold / "teams.csv")
+        merged = helpers.cached_pd_csv(fold / "merged_gw.csv")
+
+        merged = merged[merged.name.str.contains(player)]
+        for _, row in merged.iterrows():
+            historical.append(int(teams[teams.id == row.opponent_team].strength))
+
+    return structures.Samples(
+        historical=historical,
+        future=difficulty_next_n(name_to_element_id(player), n=n),
+    )

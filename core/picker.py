@@ -36,16 +36,16 @@ def lineup(
 ) -> T.List[structures.Player]:
 
     _gkp = sorted(
-        (p for p in pool if p.position == "GKP"), key=lambda p: p.score, reverse=True
+        (p for p in pool if p.position == "GKP"), key=lambda p: p.xP, reverse=True
     )
     _def = sorted(
-        (p for p in pool if p.position == "DEF"), key=lambda p: p.score, reverse=True
+        (p for p in pool if p.position == "DEF"), key=lambda p: p.xP, reverse=True
     )
     _mid = sorted(
-        (p for p in pool if p.position == "MID"), key=lambda p: p.score, reverse=True
+        (p for p in pool if p.position == "MID"), key=lambda p: p.xP, reverse=True
     )
     _fwd = sorted(
-        (p for p in pool if p.position == "FWD"), key=lambda p: p.score, reverse=True
+        (p for p in pool if p.position == "FWD"), key=lambda p: p.xP, reverse=True
     )
 
     m_gkps, m_defs, m_mids, m_fwds = tuple(set(m) for m in base)
@@ -95,16 +95,16 @@ def lineup(
         )
 
     gkp_combinations = tuple(
-        sorted(_gkp_combinations(), key=functions.lineup_score, reverse=True)
+        sorted(_gkp_combinations(), key=functions.lineup_xp, reverse=True)
     )
     def_combinations = tuple(
-        sorted(_def_combinations(), key=functions.lineup_score, reverse=True)
+        sorted(_def_combinations(), key=functions.lineup_xp, reverse=True)
     )
     mid_combinations = tuple(
-        sorted(_mid_combinations(), key=functions.lineup_score, reverse=True)
+        sorted(_mid_combinations(), key=functions.lineup_xp, reverse=True)
     )
     fwd_combinations = tuple(
-        sorted(_fwd_combinations(), key=functions.lineup_score, reverse=True)
+        sorted(_fwd_combinations(), key=functions.lineup_xp, reverse=True)
     )
 
     total = (
@@ -144,18 +144,10 @@ def lineup(
         max(fwd_combinations, key=functions.lineup_cost)
     )
 
-    max_score_gkp = functions.lineup_score(
-        max(gkp_combinations, key=functions.lineup_score)
-    )
-    max_score_def = functions.lineup_score(
-        max(def_combinations, key=functions.lineup_score)
-    )
-    max_score_mid = functions.lineup_score(
-        max(mid_combinations, key=functions.lineup_score)
-    )
-    max_score_fwd = functions.lineup_score(
-        max(fwd_combinations, key=functions.lineup_score)
-    )
+    max_xp_gkp = functions.lineup_xp(max(gkp_combinations, key=functions.lineup_xp))
+    max_xp_def = functions.lineup_xp(max(def_combinations, key=functions.lineup_xp))
+    max_xp_mid = functions.lineup_xp(max(mid_combinations, key=functions.lineup_xp))
+    max_xp_fwd = functions.lineup_xp(max(fwd_combinations, key=functions.lineup_xp))
 
     min_cost_mid_fwd = min_cost_mid + min_cost_fwd
     min_cost_def_mid_fwd = min_cost_def + min_cost_mid + min_cost_fwd
@@ -163,17 +155,17 @@ def lineup(
     max_cost_mid_fwd = max_cost_mid + max_cost_fwd
     max_cost_def_mid_fwd = max_cost_def + max_cost_mid + max_cost_fwd
 
-    max_score_mid_fwd = max_score_mid + max_score_fwd
-    max_score_def_mid_fwd = max_score_def + max_score_mid + max_score_fwd
+    max_xp_mid_fwd = max_xp_mid + max_xp_fwd
+    max_xp_def_mid_fwd = max_xp_def + max_xp_mid + max_xp_fwd
 
     best_lineup = []
     buget_lower = buget * 0.9
-    best_score = sum((max_score_gkp, max_score_def, max_score_mid, max_score_fwd)) * 0.9
+    best_xp = sum((max_xp_gkp, max_xp_def, max_xp_mid, max_xp_fwd)) * 0.9
     step = len(mid_combinations) * len(fwd_combinations)
 
     if verbose:
         print(f"{min_cost_mid=}, {min_cost_fwd=}, {min_cost_mid_fwd=}")
-        print(f"{max_score_mid=}, {max_score_fwd=}, {max_score_mid_fwd=}")
+        print(f"{max_xp_mid=}, {max_xp_fwd=}, {max_xp_mid_fwd=}")
         print(f"{m_gkps=}, {m_defs=}, {m_mids=}, {m_fwds=}")
 
     def lvl0(c):
@@ -181,7 +173,7 @@ def lineup(
             buget_lower - max_cost_def_mid_fwd
             <= functions.lineup_cost(c)
             <= buget - min_cost_def_mid_fwd
-            and functions.lineup_score(c) + max_score_def_mid_fwd > best_score
+            and functions.lineup_xp(c) + max_xp_def_mid_fwd > best_xp
             and constraints.team_constraint(c)
         )
 
@@ -190,7 +182,7 @@ def lineup(
             buget_lower - max_cost_mid_fwd
             <= functions.lineup_cost(c)
             <= buget - min_cost_mid_fwd
-            and functions.lineup_score(c) + max_score_mid_fwd > best_score
+            and functions.lineup_xp(c) + max_xp_mid_fwd > best_xp
             and constraints.team_constraint(c)
             and constraints.gkp_def_not_same_team(c)
         )
@@ -200,14 +192,14 @@ def lineup(
             buget_lower - max_cost_fwd
             <= functions.lineup_cost(c)
             <= buget - min_cost_fwd
-            and functions.lineup_score(c) + max_score_fwd > best_score
+            and functions.lineup_xp(c) + max_xp_fwd > best_xp
             and constraints.team_constraint(c)
         )
 
     def lvl3(c):
         return (
             functions.lineup_cost(c) <= buget
-            and functions.lineup_score(c) > best_score
+            and functions.lineup_xp(c) > best_xp
             and constraints.team_constraint(c)
         )
 
@@ -229,7 +221,7 @@ def lineup(
                                 for f in fwd_combinations:
                                     g3 = g2 + f
                                     if lvl3(g3):
-                                        best_score = functions.lineup_score(g3)
+                                        best_xp = functions.lineup_xp(g3)
                                         best_lineup = g3
                                         if verbose:
                                             print("-" * 100)
@@ -243,14 +235,13 @@ def transfers(
     old: T.List[structures.Player],
     max_transfers: int,
     verbose: bool = False,
-    out: T.List[str] = [],
 ) -> T.List[structures.Player]:
 
     old_lineup_cost = functions.lineup_cost(old)
     pool = list(set(pool) - set(old))
 
-    pool = sorted(pool, key=lambda p: p.score, reverse=True)
-    old = sorted(old, key=lambda p: p.score, reverse=True)
+    pool = sorted(pool, key=lambda p: p.xP, reverse=True)
+    old = sorted(old, key=lambda p: p.xP, reverse=True)
 
     @functools.lru_cache(maxsize=len(pool) * len(old))
     def tp(old, new):
@@ -266,17 +257,12 @@ def transfers(
         if n_transfers > max_transfers:
             raise InvalidLineup
 
-        if n_transfers > 0:
-            for p in current:
-                if p.name in out:
-                    raise InvalidLineup
-
         if n_transfers == max_transfers:
             if (
                 functions.lineup_cost(current) <= old_lineup_cost
                 and constraints.team_constraint(current)
                 and constraints.gkp_def_not_same_team(current)
-                and functions.lineup_score(current) > functions.lineup_score(best)
+                and functions.lineup_xp(current) > functions.lineup_xp(best)
             ):
                 return current
             raise InvalidLineup
@@ -334,20 +320,6 @@ def argument_parser():
         default=2,
         help="Number of allowed transfers.",
     )
-    transfer_parser.add_argument(
-        "-i",
-        "--ignore",
-        nargs="+",
-        default=[],
-        help="Remove player(s) from the candidates pool.",
-    )
-    transfer_parser.add_argument(
-        "-o",
-        "--out",
-        nargs="+",
-        default=[],
-        help="Force player(s) out of the lineup.",
-    )
 
     lineup_parser = sub_parsers.add_parser(
         "lineup",
@@ -387,13 +359,6 @@ def argument_parser():
         default=1_00,
         type=float,
     )
-    lineup_parser.add_argument(
-        "-i",
-        "--ignore",
-        nargs="+",
-        default=[],
-        help="Remove player(s) from the candidates pool.",
-    )
 
     print_parser = sub_parsers.add_parser(
         "print",
@@ -414,26 +379,20 @@ def main():
     if parsed.refresh:
         gather.refresh()
 
-    pool = functions.top_n_score_by_cost_by_positions(gather.player_pool())
-    for drop in (p for p in pool if p.name in parsed.ignore):
-        if drop in pool:
-            pool.remove(drop)
-
     if parsed.mode == "transfer":
         old = gather.team()
         new = transfers(
-            pool=pool,
+            pool=gather.player_pool(),
             old=old,
             max_transfers=parsed.max,
             verbose=parsed.verbose,
-            out=parsed.out,
         )
         functions.tprint(old, new)
 
     elif parsed.mode == "lineup":
         functions.sprint(
             lineup(
-                pool=pool,
+                pool=gather.player_pool(),
                 verbose=parsed.verbose,
                 buget=int(parsed.buget * 10),
                 base=(
