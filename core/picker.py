@@ -75,7 +75,7 @@ def lineup(
 
     def _def_combinations():
         yield from filter(
-            lambda d: constraints.position_constraint(d, 2, "DEF")
+            lambda d: constraints.position_constraint(d, 1, "DEF")
             and constraints.must_contain(d, m_defs),
             itertools.combinations(_def, 5),
         )
@@ -408,7 +408,7 @@ def main():
         if parsed.show == "team":
             functions.sprint(gather.team())
         elif parsed.show == "pool":
-            functions.lprint(pool)
+            functions.lprint(gather.player_pool())
 
 
 if __name__ == "__main__":
