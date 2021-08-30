@@ -245,7 +245,7 @@ def refresh():
 
         *_, name = url.split("/")
         file = folder / name
-        print(f"{str(url):<{rs}} => {str(folder):>2}")
+        print(f"{str(url):<{rs}} => {str(folder):>2}.csv")
         csv = pd.read_csv(url)
         csv.to_csv(file)
 

@@ -24,7 +24,7 @@ class Player:
 @dataclasses.dataclass(frozen=True, eq=True)
 class Team:
     name: str
-    players: T.List[Player]
+    players: T.Sequence[Player]
 
     @property
     def gpm(self) -> float:
@@ -35,7 +35,7 @@ class Team:
         return sum(p.spm for p in self.players)
 
 
-def players() -> T.List[Player]:
+def players() -> T.Sequence[Player]:
 
     pool_pd = pd.DataFrame.from_dict(gather.bootstrap_static()["elements"])
 

@@ -272,6 +272,33 @@ def transfers(
     return _transfers(old, old, 0)
 
 
+def gmw_lineup(
+    current: T.Sequence[structures.Player],
+    gmw: T.Optional[int] = None,
+    size: int = 11,
+) -> T.Sequence[structures.Player]:
+
+    if gmw is None:
+        gmw = gather.current_gameweek()
+
+    lineups = itertools.combinations(
+        current,
+        size,
+    )
+
+    best_xp = 0.0
+    best_lineup = []
+
+    for lineup in lineups:
+        xp = functions.lineup_xp(lineup)
+        if constraints.valid_formation(lineup) and xp > best_xp:
+            best_xp = xp
+            best_lineup = list(lineup)
+
+    return best_lineup
+
+
+
 def argument_parser():
     parser = argparse.ArgumentParser(prog="Lazy FPL")
     parser.add_argument(
@@ -345,8 +372,8 @@ def argument_parser():
     print_parser.add_argument(
         "show",
         nargs="?",
-        choices=("team", "pool"),
-        help="Print current FPL-team or player pool.",
+        choices=("team", "pool", "gmw"),
+        help="Print current FPL-team, player pool or optimal gmw-team.",
     )
 
     return parser.parse_args()
@@ -388,6 +415,12 @@ def main():
             functions.sprint(gather.team())
         elif parsed.show == "pool":
             functions.lprint(gather.player_pool())
+        elif parsed.show == "gmw":
+            functions.sprint(
+                gmw_lineup(
+                    gather.team(),
+                )
+            )
 
 
 if __name__ == "__main__":

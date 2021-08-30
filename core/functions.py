@@ -30,13 +30,13 @@ def lineup_cost(
 
 
 def lineup_xp(
-    lineup: T.List[structures.Player],
+    lineup: T.Sequence[structures.Player],
     acc=sum,
 ) -> float:
     return round(acc(p.xP for p in lineup), 1)
 
 
-def lineup_tp(lineup: T.List[structures.Player], acc=sum) -> float:
+def lineup_tp(lineup: T.Sequence[structures.Player], acc=sum) -> float:
     return round(acc(p.points for p in lineup), 1)
 
 
