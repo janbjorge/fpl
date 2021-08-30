@@ -10,7 +10,7 @@ from collections import (
 from core.structures import Player
 
 
-def team_constraint(lineup: List[Player], n=3):
+def team_constraint(lineup: List[Player], n=2):
     count = Counter(p.team for p in lineup)
     return max(count.values()) <= n
 

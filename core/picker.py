@@ -124,9 +124,6 @@ def lineup(
         print("--> Zero combinations to evaluate.")
         return []
 
-    min_cost_def = functions.lineup_cost(
-        min(gkp_combinations, key=functions.lineup_cost)
-    )
     min_cost_mid = functions.lineup_cost(
         min(mid_combinations, key=functions.lineup_cost)
     )
@@ -134,9 +131,6 @@ def lineup(
         min(fwd_combinations, key=functions.lineup_cost)
     )
 
-    max_cost_def = functions.lineup_cost(
-        max(gkp_combinations, key=functions.lineup_cost)
-    )
     max_cost_mid = functions.lineup_cost(
         max(mid_combinations, key=functions.lineup_cost)
     )
@@ -150,13 +144,8 @@ def lineup(
     max_xp_fwd = functions.lineup_xp(max(fwd_combinations, key=functions.lineup_xp))
 
     min_cost_mid_fwd = min_cost_mid + min_cost_fwd
-    min_cost_def_mid_fwd = min_cost_def + min_cost_mid + min_cost_fwd
-
     max_cost_mid_fwd = max_cost_mid + max_cost_fwd
-    max_cost_def_mid_fwd = max_cost_def + max_cost_mid + max_cost_fwd
-
     max_xp_mid_fwd = max_xp_mid + max_xp_fwd
-    max_xp_def_mid_fwd = max_xp_def + max_xp_mid + max_xp_fwd
 
     best_lineup = []
     buget_lower = buget * 0.9
@@ -167,15 +156,6 @@ def lineup(
         print(f"{min_cost_mid=}, {min_cost_fwd=}, {min_cost_mid_fwd=}")
         print(f"{max_xp_mid=}, {max_xp_fwd=}, {max_xp_mid_fwd=}")
         print(f"{m_gkps=}, {m_defs=}, {m_mids=}, {m_fwds=}")
-
-    def lvl0(c):
-        return (
-            buget_lower - max_cost_def_mid_fwd
-            <= functions.lineup_cost(c)
-            <= buget - min_cost_def_mid_fwd
-            and functions.lineup_xp(c) + max_xp_def_mid_fwd > best_xp
-            and constraints.team_constraint(c)
-        )
 
     def lvl1(c):
         return (
@@ -210,22 +190,21 @@ def lineup(
         unit_divisor=2 ** 10,
     ) as bar:
         for g in gkp_combinations:
-            if lvl0(g):
-                for d in def_combinations:
-                    bar.update(step)
-                    g1 = g + d
-                    if lvl1(g1):
-                        for m in mid_combinations:
-                            g2 = g1 + m
-                            if lvl2(g2):
-                                for f in fwd_combinations:
-                                    g3 = g2 + f
-                                    if lvl3(g3):
-                                        best_xp = functions.lineup_xp(g3)
-                                        best_lineup = g3
-                                        if verbose:
-                                            print("-" * 100)
-                                            functions.sprint(g3)
+            for d in def_combinations:
+                bar.update(step)
+                g1 = g + d
+                if lvl1(g1):
+                    for m in mid_combinations:
+                        g2 = g1 + m
+                        if lvl2(g2):
+                            for f in fwd_combinations:
+                                g3 = g2 + f
+                                if lvl3(g3):
+                                    best_xp = functions.lineup_xp(g3)
+                                    best_lineup = g3
+                                    if verbose:
+                                        print("-" * 100)
+                                        functions.sprint(g3)
 
     return best_lineup
 
