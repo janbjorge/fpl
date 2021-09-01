@@ -5,7 +5,10 @@ from core import (
     helpers,
 )
 
+_POSITIONS = T.Literal["GKP", "DEF", "MID", "FWD"]
+
 NUMBER = T.Union[int, float]
+POSITIONS = T.get_args(_POSITIONS)
 
 
 @dataclasses.dataclass(frozen=False)
@@ -26,7 +29,35 @@ class Samples:
 class Player:
     name: str = dataclasses.field(compare=True, hash=True)
     team: str = dataclasses.field(compare=True, hash=True)
-    position: str = dataclasses.field(compare=True, hash=True)
+    position: _POSITIONS = dataclasses.field(compare=True, hash=True)
     cost: int
     points: int
     xP: float
+
+
+@dataclasses.dataclass(frozen=True)
+class TeamStrength:
+    name: str
+    attack: int
+    defence: int
+    overall: int
+
+@dataclasses.dataclass(frozen=True)
+class RStrength:
+    attack: float
+    defence: float
+    overall: float
+
+
+@dataclasses.dataclass(frozen=True)
+class TPlayer:
+    name: str = dataclasses.field(compare=True, hash=True)
+    position: _POSITIONS
+    points_gained: int
+
+
+@dataclasses.dataclass(frozen=True)
+class TrainingObservation:
+    gw: int
+    player: TPlayer
+    RStrength: RStrength
