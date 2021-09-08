@@ -246,7 +246,12 @@ def transfers(
                 return current
             raise InvalidLineup
 
-        for transfer_in in pool:
+        if n_transfers == 0:
+            _pool = tqdm(pool)
+        else:
+            _pool = pool
+
+        for transfer_in in _pool:
             for idx, transfer_out in enumerate(best):
 
                 if transfer_in.position != transfer_out.position:
@@ -257,16 +262,14 @@ def transfers(
                 tmp[idx] = transfer_in
 
                 try:
-                    new = _transfers(tmp, best, n_transfers=n_transfers + 1)
+                    best = _transfers(tmp, best, n_transfers=n_transfers + 1)
                 except InvalidLineup:
                     continue
 
-                best = new.copy()
                 if verbose:
                     if set(old) == set(best):
                         continue
                     tp(tuple(old), tuple(best))
-
         return best
 
     return _transfers(old, old, 0)
@@ -296,7 +299,6 @@ def gmw_lineup(
             best_lineup = list(lineup)
 
     return best_lineup
-
 
 
 def argument_parser():

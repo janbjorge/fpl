@@ -1,124 +1,71 @@
-import dataclasses
-import functools
-import random
 import typing as T
 
+import numpy as np
 import pandas as pd
 
 from core import (
     gather,
+    structures,
 )
 
 
-@dataclasses.dataclass(frozen=True, eq=True)
-class Player:
-    name: str
-    team: str
-    position: str
-    # Goals per minute
-    gpm: float
-    # Saves per minute
-    spm: float
+def performed(
+    player: str,
+    window: int = 3,
+) -> T.Generator[T.Tuple[float, float, T.Tuple[float, ...]], None, None]:
 
+    assert window > 0
 
-@dataclasses.dataclass(frozen=True, eq=True)
-class Team:
-    name: str
-    players: T.Sequence[Player]
+    historical: T.List[T.Tuple[int, structures.Strength]] = []
 
-    @property
-    def gpm(self) -> float:
-        return sum(p.gpm for p in self.players)
-
-    @property
-    def spm(self) -> float:
-        return sum(p.spm for p in self.players)
-
-
-def players() -> T.Sequence[Player]:
-
-    pool_pd = pd.DataFrame.from_dict(gather.bootstrap_static()["elements"])
-
-    # News is only a bad sign, like transfers or injuries.
-    # keep ?
-    pool_pd = pool_pd.loc[pool_pd["news"].apply(len) == 0]
-
-    pool_pd["position"] = pool_pd["element_type"].apply(gather.position)
-    pool_pd["team"] = pool_pd["team_code"].apply(gather.team_name)
-
-    # The "difficulty" function returls difficulty from 0 -> 1
-    # we want players with a low difficulty to have an advantaged
-    pool_pd = pool_pd[pool_pd["minutes"] > 0]
-
-    pool_pd["gpm"] = pool_pd.goals_scored / pool_pd.minutes
-    pool_pd["spm"] = pool_pd.saves / pool_pd.minutes
-
-    return [
-        Player(
-            name=row.web_name,
-            team=row.team,
-            position=row.position,
-            gpm=round(row.gpm, 5),
-            spm=round(row.spm, 5),
-        )
-        for _, row in pool_pd.iterrows()
-    ]
-
-
-@functools.lru_cache(maxsize=None)
-def teams() -> T.Tuple[Team, ...]:
-    def _inner():
-        for t in set(p.team for p in players()):
-            yield Team(
-                name=t,
-                players=[p for p in players() if p.team == t],
+    for row in gather.history(player):
+        if row.was_home:
+            s = structures.Strength(
+                attack=int(row.strength_defence_home),
+                defence=int(row.strength_defence_home),
+                overall=int(row.strength_overall_home),
+                home=bool(row.was_home),
+            )
+        else:
+            s = structures.Strength(
+                attack=int(row.strength_defence_away),
+                defence=int(row.strength_defence_away),
+                overall=int(row.strength_overall_away),
+                home=bool(row.was_home),
             )
 
-    return tuple(_inner())
+        tp = int(row.total_points)
+
+        historical.append((tp, s))
+
+    historical.reverse()
+    historical = historical[-window * window :]
+
+    while len(historical) > window:
+        ctp, cs = historical.pop()
+        yield (
+            ctp,
+            cs.mean(),
+            tuple(t * s.mean() for t, s in historical[-window:]),
+        )
 
 
-def match(
-    t1: Team,
-    t2: Team,
-    duration: int = 90,
-):
-    t1_rgpm = t1.gpm - t2.spm if t1.gpm - t2.spm > 0 else 0.001
-    t2_rgpm = t2.gpm - t1.spm if t2.gpm - t1.spm > 0 else 0.001
+def lstsq_xP(
+    player: str,
+) -> int:
 
-    t1goals = sum(random.random() < t1_rgpm for _ in range(duration))
-    t2goals = sum(random.random() < t2_rgpm for _ in range(duration))
+    _performed = tuple(performed(player))
 
-    return (
-        (t1.name, t1goals),
-        (t2.name, t2goals),
+    if not _performed:
+        return 0
+
+    x, *_ = np.linalg.lstsq(
+        np.array([np.array(v) for _, _, v in _performed]),
+        np.array([np.array(s * tp) for tp, s, _ in _performed]),
+        rcond=None,
     )
 
+    next_team_stg = gather.strength_next_n(player, n=1)[0]
+    last3 = _performed[0][-1]
 
-def gameweek(round: int):
-    for h, a in gather.matchups(round):
-        (hn, hg), (an, ag) = match(
-            Team(h, [p for p in players() if p.team == h]),
-            Team(a, [p for p in players() if p.team == a]),
-        )
-        print(f"{hn} - {an} ({hg} - {ag})")
-
-
-def all_v_all():
-    import itertools
-    import collections
-
-    c = collections.Counter()
-
-    for t1, t2 in itertools.permutations(teams(), 2):
-        (hn, hg), (an, ag) = match(t1, t2)
-
-        if hg > ag:
-            c[hn] += 3
-        elif hg < ag:
-            c[an] += 3
-        else:
-            c[hn] += 1
-            c[an] += 1
-
-    for pos, (team, points) in enumerate(c.most_common(len(c)), start=1):
-        print(f"{pos:>2}) {team} - {points}")
+    return round(x.dot(last3) / next_team_stg.mean(), 1)

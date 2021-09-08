@@ -121,13 +121,3 @@ def tprint(
 
     for o, n in zip(change_old_new, change_new_old):
         print(f"{str(o):<{rs}} => {str(n):>2}")
-
-
-def xP(
-    tp: int,
-    opponents: structures.Samples,
-    gmw: int,
-) -> float:
-    return round(
-        (opponents.caverge_historical * tp) / (opponents.caverge_future * gmw), 1
-    )

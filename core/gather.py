@@ -1,10 +1,10 @@
 import concurrent.futures
-import dateutil.parser
 import os
 import pathlib
 import shutil
 import typing as T
 
+import numpy as np
 import pandas as pd
 import requests
 
@@ -12,15 +12,16 @@ from core import (
     functions,
     helpers,
     structures,
+    simulator,
 )
 
 
-@helpers.file_cache("bootstrap_static")
+@helpers.cache("bootstrap_static")
 def bootstrap_static(url="https://fantasy.premierleague.com/api/bootstrap-static/"):
     return requests.get(url).json()
 
 
-@helpers.file_cache("gameweek")
+@helpers.cache("gameweek")
 def gameweek(
     round: int,
     url="https://fantasy.premierleague.com/api/fixtures/",
@@ -33,25 +34,6 @@ def current_gameweek() -> int:
         if event["is_current"]:
             return event["id"] + 1
     raise ValueError
-
-
-def matchups(
-    round: int,
-) -> T.Tuple[T.Tuple[str, str], ...]:
-    def _key(row):
-        return (
-            dateutil.parser.parse(row["kickoff_time"]),
-            row["team_h"],
-            row["team_a"],
-        )
-
-    return tuple(
-        (
-            team_id_team_name(fixture["team_h"]),
-            team_id_team_name(fixture["team_a"]),
-        )
-        for fixture in sorted(gameweek(round), key=_key)
-    )
 
 
 def positions():
@@ -76,7 +58,7 @@ def position(element_type_id):
             return element_type["singular_name_short"]
 
 
-@helpers.file_cache("element_summary")
+@helpers.cache("element_summary")
 def element_summary(element_id: int):
     return requests.get(
         f"https://fantasy.premierleague.com/api/element-summary/{element_id}/"
@@ -90,10 +72,59 @@ def name_to_element_id(name: str) -> int:
     raise KeyError
 
 
-def difficulty_next_n(element_id, n=5) -> T.List[float]:
-    # Normalized 0 -> 1, where 0 is easy and 1 is hard, the
-    # upcomming match is more importent than a match in a few gameworks.
-    return list((e["difficulty"]) for e in element_summary(element_id)["fixtures"][:n])
+def history(
+    player: str,
+    folder=pathlib.Path("data"),
+) -> T.Generator[pd.Series, None, None]:
+
+    # Data from session 2019/2020, 2020/2021 and 2021/2022
+    for fold in sorted(folder.glob("*_*/"), reverse=True):
+
+        teams = helpers.cached_pd_csv(fold / "teams.csv")
+        merged_gw = helpers.cached_pd_csv(fold / "merged_gw.csv")
+        player_gws = merged_gw.loc[merged_gw.name.str.contains(player)]
+
+        merged = player_gws.merge(teams, left_on="opponent_team", right_on="id")
+        merged.sort_values("GW", inplace=True, ascending=False)
+
+        for _, row in merged.iterrows():
+            yield row
+
+
+def next_n(
+    player: str,
+    n: int = 3,
+) -> T.Tuple[T.Tuple[int, bool], ...]:
+    return tuple(
+        (f["team_a"], f["is_home"]) if f["is_home"] else (f["team_h"], f["is_home"])
+        for f in element_summary(name_to_element_id(player))["fixtures"][:n]
+    )
+
+
+def strength_next_n(
+    player: str,
+    n: int = 3,
+) -> T.Tuple[structures.Strength, ...]:
+    def _strength(team_id: int, home: bool):
+        for team in bootstrap_static()["teams"]:
+            if team["id"] == team_id:
+                if not home:
+                    return structures.Strength(
+                        attack=team["strength_attack_home"],
+                        defence=team["strength_defence_home"],
+                        overall=team["strength_overall_home"],
+                        home=home,
+                    )
+                return structures.Strength(
+                    attack=team["strength_attack_away"],
+                    defence=team["strength_defence_away"],
+                    overall=team["strength_overall_away"],
+                    home=home,
+                )
+
+        raise KeyError(team_id)
+
+    return tuple(_strength(*opponent) for opponent in next_n(player=player, n=n))
 
 
 def player_pool(
@@ -118,11 +149,7 @@ def player_pool(
                     position=row.position,
                     cost=row.now_cost,
                     points=row.total_points,
-                    xP=functions.xP(
-                        tp=row.total_points,
-                        opponents=opponent_strength(row.web_name),
-                        gmw=current_gameweek(),
-                    ),
+                    xP=simulator.lstsq_xP(row.web_name),
                 )
                 for _, row in pool_pd.iterrows()
             ],
@@ -132,7 +159,7 @@ def player_pool(
     ]
 
 
-@helpers.file_cache("my_team")
+@helpers.cache("my_team")
 def my_team(
     login="https://users.premierleague.com/accounts/login/",
     redirect_uri="https://fantasy.premierleague.com/a/login",
@@ -185,11 +212,7 @@ def team():
             position=row.position,
             cost=row.now_cost,
             points=row.total_points,
-            xP=functions.xP(
-                tp=row.total_points,
-                opponents=opponent_strength(row.web_name),
-                gmw=current_gameweek(),
-            ),
+            xP=simulator.lstsq_xP(row.web_name),
         )
         for _, row in picks.iterrows()
     ]
@@ -210,14 +233,6 @@ def refresh():
     print(f"Refreshing: {helpers.CACHE_FOLDER} - done")
 
     historic = (
-        (
-            pathlib.Path("data/2019_2020"),
-            "https://raw.githubusercontent.com/vaastav/Fantasy-Premier-League/master/data/2019-20/gws/merged_gw.csv",
-        ),
-        (
-            pathlib.Path("data/2019_2020"),
-            "https://raw.githubusercontent.com/vaastav/Fantasy-Premier-League/master/data/2019-20/teams.csv",
-        ),
         (
             pathlib.Path("data/2020_2021"),
             "https://raw.githubusercontent.com/vaastav/Fantasy-Premier-League/master/data/2020-21/gws/merged_gw.csv",
@@ -252,29 +267,22 @@ def refresh():
     print("Refresh - done")
 
 
-def opponent_strength(
+def validate(
     player: str,
-    n: int = 1,
-    folder=pathlib.Path("data"),
-) -> structures.Samples:
+):
 
-    # Obs. remember that the "most" significant sample
-    # should be at `0`, thus newer samples should be at an
-    # lower index than "old" samples.
-    historical: T.List[T.Union[int, float]] = []
+    _performed = tuple(simulator.performed(player))
 
-    # Data from session 2019/2020, 2020/2021 and 2021/2022
-    for fold in sorted(folder.glob("*_*/"), reverse=True):
+    if not _performed:
+        return 0
 
-        teams = helpers.cached_pd_csv(fold / "teams.csv")
-        merged_gw = helpers.cached_pd_csv(fold / "merged_gw.csv")
-        player_gws = merged_gw.loc[merged_gw.name.str.contains(player)]
-
-        merged = player_gws.merge(teams, left_on="opponent_team", right_on="id")
-        merged.sort_values("GW", inplace=True, ascending=False)
-        historical.extend(merged.strength.values)
-
-    return structures.Samples(
-        historical=historical,
-        future=difficulty_next_n(name_to_element_id(player), n=n),
+    x, *_ = np.linalg.lstsq(
+        np.array([np.array(v) for _, _, v in _performed]),
+        np.array([np.array(s * tp) for tp, s, _ in _performed]),
+        rcond=None,
     )
+
+    print(f"*** {player} ***")
+    for tp, s, hist in simulator.performed(player):
+        _xp = round(x.dot(hist) / s, 1)
+        print(f"{tp:<2} - {_xp}")

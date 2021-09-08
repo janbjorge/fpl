@@ -1,25 +1,30 @@
 import dataclasses
 import typing as T
 
-from core import (
-    helpers,
-)
 
-NUMBER = T.Union[int, float]
+@dataclasses.dataclass(frozen=True, eq=True)
+class Strength:
+    attack: int
+    defence: int
+    overall: int
+    home: bool
 
+    def mean(self) -> float:
+        return (self.attack + self.defence + self.overall) / 3.0
 
-@dataclasses.dataclass(frozen=False)
-class Samples:
+    @staticmethod
+    def from_dict(d: T.Dict) -> "Strength":
+        return Strength(
+            attack=d["attack"],
+            defence=d["defence"],
+            home=d["home"],
+            overall=d["overall"],
+        )
 
-    historical: T.List[NUMBER] = dataclasses.field(default_factory=list)
-    future: T.List[NUMBER] = dataclasses.field(default_factory=list)
-
-    caverge_historical: float = dataclasses.field(init=False)
-    caverge_future: float = dataclasses.field(init=False)
-
-    def __post_init__(self):
-        self.caverge_historical = helpers.caverge(self.historical)
-        self.caverge_future = helpers.caverge(self.future)
+    def ratio(self, other: "Strength") -> float:
+        if self.home:
+            return self.mean() / other.mean()
+        return other.mean() / self.mean()
 
 
 @dataclasses.dataclass(frozen=True, eq=True)

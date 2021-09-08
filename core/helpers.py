@@ -2,18 +2,19 @@ import functools
 import itertools
 import json
 import pathlib
+import time
 import typing as T
 
 import numpy as np
 import pandas as pd
 
 
-CACHE_FOLDER = pathlib.Path("./.file_cache/")
+CACHE_FOLDER = pathlib.Path("./.cache/")
 E = T.TypeVar("E")
 NUMBER = T.Union[int, float]
 
 
-def file_cache(postfix: str):
+def cache(postfix: str):
     def outer(f):
 
         folder = CACHE_FOLDER / postfix
@@ -59,3 +60,23 @@ def caverge(
     weights = np.cos(np.linspace(0, 1, len(samples)) * np.pi / 3)
     weights /= weights.sum()
     return np.average(samples, weights=weights)
+
+
+def timeit(prefix=None):
+    def outer(f):
+
+        nonlocal prefix
+        if prefix is None:
+            prefix = f.__name__
+
+        @functools.wraps(f)
+        def inner(*args, **kw):
+            enter = time.time()
+            try:
+                return f(*args, **kw)
+            finally:
+                print(f"{prefix} - {time.time() - enter}")
+
+        return inner
+
+    return outer
