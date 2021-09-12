@@ -27,6 +27,7 @@ def lineup(
     pool: T.List[structures.Player],
     verbose: bool = False,
     buget=1_000,
+    ignore: T.Tuple[str, ...] = tuple(),
     base=(
         (),
         (),
@@ -34,6 +35,8 @@ def lineup(
         (),
     ),
 ) -> T.List[structures.Player]:
+
+    pool = [p for p in pool if p.name not in ignore]
 
     _gkp = sorted(
         (p for p in pool if p.position == "GKP"), key=lambda p: p.xP, reverse=True
@@ -214,18 +217,43 @@ def transfers(
     old: T.List[structures.Player],
     max_transfers: int,
     verbose: bool = False,
+    add: T.Tuple[str, ...] = tuple(),
+    remove: T.Tuple[str, ...] = tuple(),
+    ignore: T.Tuple[str, ...] = tuple(),
 ) -> T.List[structures.Player]:
 
     old_lineup_cost = functions.lineup_cost(old)
     pool = list(set(pool) - set(old))
 
-    pool = sorted(pool, key=lambda p: p.xP, reverse=True)
-    old = sorted(old, key=lambda p: p.xP, reverse=True)
+    pool = sorted(pool, key=lambda p: p.xP, reverse=False)
+    old = sorted(old, key=lambda p: p.xP, reverse=False)
 
     @functools.lru_cache(maxsize=len(pool) * len(old))
     def tp(old, new):
         functions.tprint(old, new)
         print("-" * 100)
+
+    def valid_add(lineup: T.List[structures.Player]) -> bool:
+        if not add:
+            return True
+        names = set(p.name for p in lineup)
+        return all(a in names for a in add)
+
+    def valid_remove(lineup: T.List[structures.Player]) -> bool:
+        if not remove:
+            return True
+        names = set(p.name for p in lineup)
+        return all(r not in names for r in remove)
+
+    pool = [p for p in pool if p.name not in ignore]
+
+    for p in add:
+        if not any(l.name == p for l in pool):
+            print(f"Player '{p}' not in seclection pool.")
+
+    for p in remove:
+        if not any(l.name == p for l in old):
+            print(f"Player '{p}' not in current lineup.")
 
     def _transfers(
         current: T.List[structures.Player],
@@ -242,6 +270,8 @@ def transfers(
                 and constraints.team_constraint(current)
                 and constraints.gkp_def_not_same_team(current)
                 and functions.lineup_xp(current) > functions.lineup_xp(best)
+                and valid_add(current)
+                and valid_remove(current)
             ):
                 return current
             raise InvalidLineup
@@ -328,33 +358,57 @@ def argument_parser():
         default=2,
         help="Number of allowed transfers.",
     )
+    transfer_parser.add_argument(
+        "-r",
+        "--remove",
+        type=str,
+        nargs="+",
+        default=[],
+        help="Player(s) that must best be removed from lineup.",
+    )
+    transfer_parser.add_argument(
+        "-a",
+        "--add",
+        type=str,
+        nargs="+",
+        default=[],
+        help="Player(s) that must best be added to the lineup.",
+    )
+    transfer_parser.add_argument(
+        "-i",
+        "--ignore",
+        type=str,
+        nargs="+",
+        default=[],
+        help="Lineup(s) containing these player(s) won't be considered.",
+    )
 
     lineup_parser = sub_parsers.add_parser(
         "lineup",
     )
     lineup_parser.add_argument(
-        "-gkp",
+        "-g",
         "--goalkeepers",
         nargs="+",
         help="Goalkeepers (FPL web-name) tha must be in the lineup.",
         default=[],
     )
     lineup_parser.add_argument(
-        "-def",
+        "-d",
         "--defenders",
         nargs="+",
         help="Defenders (FPL web-name) tha must be in the lineup.",
         default=[],
     )
     lineup_parser.add_argument(
-        "-mid",
+        "-m",
         "--midfielders",
         nargs="+",
         help="Midfielders (FPL web-name) tha must be in the lineup.",
         default=[],
     )
     lineup_parser.add_argument(
-        "-fwd",
+        "-f",
         "--forwards",
         nargs="+",
         help="Forwards (FPL web-name) tha must be in the lineup.",
@@ -363,9 +417,17 @@ def argument_parser():
     lineup_parser.add_argument(
         "-b",
         "--buget",
-        help="The sice of your buget, defualt is: 100.",
+        help="The size of your buget, defualt is: 100.",
         default=1_00,
         type=float,
+    )
+    lineup_parser.add_argument(
+        "-i",
+        "--ignore",
+        type=str,
+        nargs="+",
+        default="",
+        help="Lineup(s) containing these player(s) won't be considered.",
     )
 
     print_parser = sub_parsers.add_parser(
@@ -394,6 +456,9 @@ def main():
             old=old,
             max_transfers=parsed.max,
             verbose=parsed.verbose,
+            add=parsed.add,
+            remove=parsed.remove,
+            ignore=parsed.ignore,
         )
         functions.tprint(old, new)
 
@@ -403,6 +468,7 @@ def main():
                 pool=gather.player_pool(),
                 verbose=parsed.verbose,
                 buget=int(parsed.buget * 10),
+                ignore=parsed.ignore,
                 base=(
                     tuple(parsed.goalkeepers),
                     tuple(parsed.defenders),
