@@ -4,6 +4,7 @@ import numpy as np
 import pandas as pd
 
 from core import (
+    errors,
     gather,
     structures,
 )
@@ -69,3 +70,41 @@ def lstsq_xP(
     last3 = _performed[0][-1]
 
     return round(x.dot(last3) / next_team_stg.mean(), 1)
+
+
+class Palantir:
+    def __init__(self, player: str):
+        self.player = player
+        self._x: T.List[np.ndarray] = []
+        self._y: T.List[np.ndarray] = []
+        self._model: T.Optional[np.ndarray] = None
+
+    def observation(self, x: np.ndarray, y: np.ndarray) -> None:
+        self._x.append(x)
+        self._y.append(y)
+
+    def performed(self) -> None:
+        for tp, s, v in performed(self.player):
+            self.observation(
+                x=np.array(v),
+                y=np.array(s * tp),
+            )
+
+    def fit(self) -> None:
+        self._model, *_ = np.linalg.lstsq(
+            np.array(self._x),
+            np.array(self._y),
+            rcond=None,
+        )
+
+    def predict(self, next_team_stg: structures.Strength) -> float:
+        if self._model is None:
+            raise errors.NotTrained(
+                "You need to call `.fit(..)` before `predict(...)` can be used."
+            )
+        assert self._model is not None
+
+        return round(
+            self._model.dot(self._x[-1]) / next_team_stg.mean(),
+            1,
+        )

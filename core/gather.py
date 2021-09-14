@@ -205,6 +205,14 @@ def team():
     ).apply(float)
     picks["web_name"] = picks.element.apply(lambda row: element(row, "web_name"))
 
+    def xP(name):
+        magic = simulator.Palantir(name)
+        magic.performed()
+        magic.fit()
+        return magic.predict(
+            
+        )
+
     return [
         structures.Player(
             name=row.web_name,
@@ -212,6 +220,7 @@ def team():
             position=row.position,
             cost=row.now_cost,
             points=row.total_points,
+            xP=simulator.Palantir(row.web)
             xP=simulator.lstsq_xP(row.web_name),
         )
         for _, row in picks.iterrows()

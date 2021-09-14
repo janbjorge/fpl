@@ -9,18 +9,11 @@ from tqdm import (
 
 from core import (
     constraints,
+    errors,
     functions,
     gather,
     structures,
 )
-
-
-class FPLException(BaseException):
-    pass
-
-
-class InvalidLineup(FPLException):
-    pass
 
 
 def lineup(
@@ -260,7 +253,7 @@ def transfers(
     ) -> T.List[structures.Player]:
 
         if n_transfers > max_transfers:
-            raise InvalidLineup
+            raise errors.InvalidLineup
 
         if n_transfers == max_transfers:
             if (
@@ -272,7 +265,7 @@ def transfers(
                 and valid_remove(current)
             ):
                 return current
-            raise InvalidLineup
+            raise errors.InvalidLineup
 
         if n_transfers == 0:
             _pool = tqdm(pool)
@@ -291,7 +284,7 @@ def transfers(
 
                 try:
                     best = _transfers(tmp, best, n_transfers=n_transfers + 1)
-                except InvalidLineup:
+                except errors.InvalidLineup:
                     continue
 
                 if verbose:
