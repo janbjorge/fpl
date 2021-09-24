@@ -1,25 +1,10 @@
-import collections
+import statistics
 import typing as T
-
-import numpy as np
 
 from core import (
     gather,
-    helpers,
     structures,
 )
-
-
-def caverge(
-    samples: T.Sequence[T.Union[float, int]],
-) -> T.Union[float, int]:
-    # By applying this averger we pay more attion
-    # to newer values than older values.
-    if not samples:
-        return 0
-    weights = np.cos(np.linspace(0, 1, len(samples)) * np.pi / 3)
-    weights /= weights.sum()
-    return np.average(samples, weights=weights)
 
 
 def lineup_cost(
@@ -38,36 +23,6 @@ def lineup_xp(
 
 def lineup_tp(lineup: T.Sequence[structures.Player], acc=sum) -> float:
     return round(acc(p.points for p in lineup), 1)
-
-
-def grp_by_cost(
-    pool: T.List[structures.Player],
-) -> T.DefaultDict[int, T.List[structures.Player]]:
-    grp = collections.defaultdict(list)
-    for p in pool:
-        grp[p.cost].append(p)
-    return grp
-
-
-def top_n_xp_by_cost(
-    pool: T.List[structures.Player],
-    n,
-) -> T.List[T.List[structures.Player]]:
-    return [
-        sorted(v, key=lambda v: v.xP, reverse=True)[:n]
-        for v in grp_by_cost(pool).values()
-    ]
-
-
-def top_n_xp_by_cost_by_positions(
-    pool: T.List[structures.Player],
-    cutoff: T.Tuple[int, int, int, int] = (2, 3, 3, 2),
-) -> T.List[structures.Player]:
-    new = []
-    for n, pos in zip(cutoff, gather.positions()):
-        d = top_n_xp_by_cost([p for p in pool if p.position == pos], n=n)
-        new.extend(helpers.flatten(d))
-    return new
 
 
 def lprint(lineup: T.List[structures.Player]) -> None:
@@ -121,3 +76,19 @@ def tprint(
 
     for o, n in zip(change_old_new, change_new_old):
         print(f"{str(o):<{rs}} => {str(n):>2}")
+
+
+def remove_bad(
+    pool: T.List[structures.Player],
+    min_xp: T.Optional[float],
+    must: T.Set[str],
+) -> T.List[structures.Player]:
+
+    cutoff = {}
+    for pos in set(p.position for p in pool):
+        if min_xp is None:
+            cutoff[pos] = statistics.variance([p.xP for p in pool if p.position == pos])
+        else:
+            cutoff[pos] = min_xp
+
+    return [p for p in pool if p.xP >= cutoff[p.position] or p.name in must]

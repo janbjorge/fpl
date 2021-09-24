@@ -3,6 +3,9 @@ import itertools
 import functools
 import typing as T
 
+from plotille import (
+    histogram,
+)
 from tqdm import (
     tqdm,
 )
@@ -123,8 +126,7 @@ def lineup(
     print(f"Forwarder combinations:  {len(fwd_combinations)}")
     print(f"Total combinations:      {total:.1e}")
 
-    if total == 0:
-        print("--> Zero combinations to evaluate.")
+    if not total:
         return []
 
     min_cost_mid = functions.lineup_cost(
@@ -150,9 +152,9 @@ def lineup(
     max_cost_mid_fwd = max_cost_mid + max_cost_fwd
     max_xp_mid_fwd = max_xp_mid + max_xp_fwd
 
-    best_lineup = []
-    buget_lower = buget * 0.9
-    best_xp = sum((max_xp_gkp, max_xp_def, max_xp_mid, max_xp_fwd)) * 0.9
+    best_lineup: T.List[structures.Player] = []
+    buget_lower = buget * 0.95
+    best_xp = sum((max_xp_gkp, max_xp_def, max_xp_mid, max_xp_fwd))
     step = len(mid_combinations) * len(fwd_combinations)
 
     if verbose:
@@ -186,28 +188,35 @@ def lineup(
             and constraints.team_constraint(c)
         )
 
-    with tqdm(
-        total=total,
-        bar_format="{percentage:3.0f}%|{bar:20}{r_bar}",
-        unit_scale=True,
-        unit_divisor=2 ** 10,
-    ) as bar:
-        for g in gkp_combinations:
-            for d in def_combinations:
-                bar.update(step)
-                g1 = g + d
-                if lvl1(g1):
-                    for m in mid_combinations:
-                        g2 = g1 + m
-                        if lvl2(g2):
-                            for f in fwd_combinations:
-                                g3 = g2 + f
-                                if lvl3(g3):
-                                    best_xp = functions.lineup_xp(g3)
-                                    best_lineup = g3
-                                    if verbose:
-                                        print("-" * 100)
-                                        functions.sprint(g3)
+    while not best_lineup:
+
+        best_xp = best_xp * 0.95
+
+        if verbose:
+            print(f"best_xp={best_xp}")
+
+        with tqdm(
+            total=total,
+            bar_format="{percentage:3.0f}%|{bar:20}{r_bar}",
+            unit_scale=True,
+            unit_divisor=2 ** 10,
+        ) as bar:
+            for g in gkp_combinations:
+                for d in def_combinations:
+                    bar.update(step)
+                    g1 = g + d
+                    if lvl1(g1):
+                        for m in mid_combinations:
+                            g2 = g1 + m
+                            if lvl2(g2):
+                                for f in fwd_combinations:
+                                    g3 = g2 + f
+                                    if lvl3(g3):
+                                        best_xp = functions.lineup_xp(g3)
+                                        best_lineup = g3
+                                        if verbose:
+                                            print("-" * 100)
+                                            functions.sprint(g3)
 
     return best_lineup
 
@@ -306,10 +315,10 @@ def transfers(
 
 
 def gmw_lineup(
-    current: T.Sequence[structures.Player],
+    current: T.List[structures.Player],
     gmw: T.Optional[int] = None,
     size: int = 11,
-) -> T.Sequence[structures.Player]:
+) -> T.List[structures.Player]:
 
     if gmw is None:
         gmw = gather.current_gameweek()
@@ -382,6 +391,13 @@ def argument_parser():
         default=[],
         help="Lineup(s) containing these player(s) won't be considered.",
     )
+    transfer_parser.add_argument(
+        "-xp",
+        "--expected-points",
+        type=float,
+        default=None,
+        help="The players whos expected points are below this value will not be part of the player pool.",
+    )
 
     lineup_parser = sub_parsers.add_parser(
         "lineup",
@@ -429,6 +445,13 @@ def argument_parser():
         default="",
         help="Lineup(s) containing these player(s) won't be considered.",
     )
+    lineup_parser.add_argument(
+        "-xp",
+        "--expected-points",
+        type=float,
+        default=None,
+        help="The players whos expected points are below this value will not be part of the player pool.",
+    )
 
     print_parser = sub_parsers.add_parser(
         "print",
@@ -438,6 +461,16 @@ def argument_parser():
         nargs="?",
         choices=("team", "pool", "gmw"),
         help="Print current FPL-team, player pool or optimal gmw-team.",
+    )
+
+    histogram_parser = sub_parsers.add_parser("histogram")
+    histogram_parser.add_argument(
+        "-p",
+        "--position",
+        nargs="+",
+        default=tuple(gather.positions()),
+        choices=tuple(gather.positions()),
+        help="Display histogram for a position(s).",
     )
 
     return parser.parse_args()
@@ -451,8 +484,18 @@ def main():
 
     if parsed.mode == "transfer":
         old = gather.team()
+        pool = functions.remove_bad(
+            gather.player_pool(),
+            parsed.expected_points,
+            must=set(
+                parsed.goalkeepers
+                + parsed.defenders
+                + parsed.midfielders
+                + parsed.forwards
+            ),
+        )
         new = transfers(
-            pool=gather.player_pool(),
+            pool=pool,
             old=old,
             max_transfers=parsed.max,
             verbose=parsed.verbose,
@@ -463,9 +506,19 @@ def main():
         functions.tprint(old, new)
 
     elif parsed.mode == "lineup":
+        pool = functions.remove_bad(
+            gather.player_pool(),
+            parsed.expected_points,
+            must=set(
+                parsed.goalkeepers
+                + parsed.defenders
+                + parsed.midfielders
+                + parsed.forwards
+            ),
+        )
         functions.sprint(
             lineup(
-                pool=gather.player_pool(),
+                pool=pool,
                 verbose=parsed.verbose,
                 buget=int(parsed.buget * 10),
                 ignore=parsed.ignore,
@@ -489,6 +542,20 @@ def main():
                     gather.team(),
                 )
             )
+
+    elif parsed.mode == "histogram":
+        pool = [p for p in gather.player_pool() if p.position in parsed.position]
+        print(
+            histogram(
+                [p.xP for p in pool],
+                bins=20,
+                height=20,
+                width=80,
+                X_label="xp",
+                x_min=-2,
+                x_max=15,
+            )
+        )
 
 
 if __name__ == "__main__":

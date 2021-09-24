@@ -32,6 +32,7 @@ class Player:
     name: str = dataclasses.field(compare=True, hash=True)
     team: str = dataclasses.field(compare=True, hash=True)
     position: str = dataclasses.field(compare=True, hash=True)
+    news: str
     cost: int
     points: int
     xP: float

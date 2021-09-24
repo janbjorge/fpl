@@ -2,6 +2,7 @@ import concurrent.futures
 import os
 import pathlib
 import shutil
+import statistics
 import typing as T
 
 import numpy as np
@@ -9,7 +10,6 @@ import pandas as pd
 import requests
 
 from core import (
-    functions,
     helpers,
     structures,
     simulator,
@@ -80,10 +80,13 @@ def history(
     # Data from session 2019/2020, 2020/2021 and 2021/2022
     for fold in sorted(folder.glob("*_*/"), reverse=True):
 
-        teams = helpers.cached_pd_csv(fold / "teams.csv")
-        merged_gw = helpers.cached_pd_csv(fold / "merged_gw.csv")
-        player_gws = merged_gw.loc[merged_gw.name.str.contains(player)]
-
+        teams = helpers.cached_csv_read(fold / "teams.csv")
+        merged_gw = helpers.cached_csv_read(fold / "merged_gw.csv")
+        try:
+            player_gws = merged_gw.loc[merged_gw.name.str.contains(player)]
+        except Exception as e:
+            print(e, player)
+            return
         merged = player_gws.merge(teams, left_on="opponent_team", right_on="id")
         merged.sort_values("GW", inplace=True, ascending=False)
 
@@ -127,35 +130,24 @@ def strength_next_n(
     return tuple(_strength(*opponent) for opponent in next_n(player=player, n=n))
 
 
-def player_pool(
-    cutoff: T.Tuple[int, int, int, int] = (2, 3, 3, 2),
-) -> T.List[structures.Player]:
+def player_pool() -> T.List[structures.Player]:
 
     pool_pd = pd.DataFrame.from_dict(bootstrap_static()["elements"])
-
-    # News is only a bad sign, like transfers or injuries.
-    pool_pd = pool_pd.loc[pool_pd["news"].apply(len) == 0]
 
     pool_pd["position"] = pool_pd["element_type"].apply(position)
     pool_pd["team"] = pool_pd["team_code"].apply(team_name)
 
     return [
-        p
-        for p in functions.top_n_xp_by_cost_by_positions(
-            [
-                structures.Player(
-                    name=row.web_name,
-                    team=row.team,
-                    position=row.position,
-                    cost=row.now_cost,
-                    points=row.total_points,
-                    xP=simulator.lstsq_xP(row.web_name),
-                )
-                for _, row in pool_pd.iterrows()
-            ],
-            cutoff=cutoff,
+        structures.Player(
+            name=row.web_name,
+            team=row.team,
+            position=row.position,
+            cost=row.now_cost,
+            points=row.total_points,
+            xP=simulator.Model(row.web_name).xP(),
+            news=row.news,
         )
-        if p.xP > 0
+        for _, row in pool_pd.iterrows()
     ]
 
 
@@ -190,20 +182,16 @@ def team():
 
     picks = pd.DataFrame.from_dict(my_team()["picks"])
 
-    picks["minutes"] = picks.element.apply(lambda row: element(row, "minutes")).apply(
-        float
-    )
-    picks["now_cost"] = picks.element.apply(lambda row: element(row, "now_cost"))
+    picks["minutes"] = picks.element.apply(lambda r: element(r, "minutes")).apply(float)
+    picks["now_cost"] = picks.element.apply(lambda r: element(r, "now_cost"))
     picks["position"] = picks.element.apply(
-        lambda row: position(element(row, "element_type"))
+        lambda r: position(element(r, "element_type"))
     )
-    picks["team"] = picks.element.apply(
-        lambda row: team_name(element(row, "team_code"))
-    )
+    picks["team"] = picks.element.apply(lambda r: team_name(element(r, "team_code")))
     picks["total_points"] = picks.element.apply(
-        lambda row: element(row, "total_points")
+        lambda r: element(r, "total_points")
     ).apply(float)
-    picks["web_name"] = picks.element.apply(lambda row: element(row, "web_name"))
+    picks["web_name"] = picks.element.apply(lambda r: element(r, "web_name"))
 
     return [
         structures.Player(
@@ -212,7 +200,8 @@ def team():
             position=row.position,
             cost=row.now_cost,
             points=row.total_points,
-            xP=simulator.lstsq_xP(row.web_name),
+            xP=simulator.Model(row.web_name).xP(),
+            news="",
         )
         for _, row in picks.iterrows()
     ]

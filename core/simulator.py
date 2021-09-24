@@ -1,7 +1,6 @@
 import typing as T
 
 import numpy as np
-import pandas as pd
 
 from core import (
     gather,
@@ -50,22 +49,41 @@ def performed(
         )
 
 
-def lstsq_xP(
-    player: str,
-) -> int:
+class Model:
+    def __init__(self, player: str):
+        self.player = player
+        self._performed: T.Tuple[
+            T.Tuple[float, float, T.Tuple[float, ...]], ...
+        ] = tuple()
+        self._model = np.zeros(3)
 
-    _performed = tuple(performed(player))
+    @property
+    def performed(self):
+        if not self._performed:
+            self._performed = tuple(performed(self.player))
+        return self._performed
 
-    if not _performed:
-        return 0
+    def train(self):
 
-    x, *_ = np.linalg.lstsq(
-        np.array([np.array(v) for _, _, v in _performed]),
-        np.array([np.array(s * tp) for tp, s, _ in _performed]),
-        rcond=None,
-    )
+        if not self.performed:
+            return
 
-    next_team_stg = gather.strength_next_n(player, n=1)[0]
-    last3 = _performed[0][-1]
+        self._model, *_ = np.linalg.lstsq(
+            np.array([np.array(v) for _, _, v in self.performed]),
+            np.array([np.array(s * tp) for tp, s, _ in self.performed]),
+            rcond=None,
+        )
 
-    return round(x.dot(last3) / next_team_stg.mean(), 1)
+    def xP(self) -> float:
+
+        if not self._model.all():
+            self.train()
+
+        next_team_stg = gather.strength_next_n(self.player, n=1)[0]
+
+        if not self.performed:
+            return 0
+
+        last3 = self.performed[0][-1]
+        assert self._model is not None
+        return round(self._model.dot(last3) / next_team_stg.mean(), 1)
