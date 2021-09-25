@@ -1,8 +1,8 @@
 import concurrent.futures
 import os
 import pathlib
+import re
 import shutil
-import statistics
 import typing as T
 
 import numpy as np
@@ -80,17 +80,22 @@ def history(
     # Data from session 2019/2020, 2020/2021 and 2021/2022
     for fold in sorted(folder.glob("*_*/"), reverse=True):
 
-        teams = helpers.cached_csv_read(fold / "teams.csv")
-        merged_gw = helpers.cached_csv_read(fold / "merged_gw.csv")
-        try:
-            player_gws = merged_gw.loc[merged_gw.name.str.contains(player)]
-        except Exception as e:
-            print(e, player)
-            return
-        merged = player_gws.merge(teams, left_on="opponent_team", right_on="id")
-        merged.sort_values("GW", inplace=True, ascending=False)
+        merged = helpers.teams_gw_merge(
+            fold / "teams.csv",
+            fold / "merged_gw.csv",
+        )
 
-        for _, row in merged.iterrows():
+        try:
+            player_gws = merged[merged.name_x.str.contains(player, case=False)]
+        except re.error:
+            # Unable to match any rows on `player` due to wired characters.
+            # TODO: Ensure unicode?
+            return
+
+        if player_gws.empty:
+            return
+
+        for _, row in player_gws.iterrows():
             yield row
 
 
