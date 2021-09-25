@@ -487,12 +487,7 @@ def main():
         pool = functions.remove_bad(
             gather.player_pool(),
             parsed.expected_points,
-            must=set(
-                parsed.goalkeepers
-                + parsed.defenders
-                + parsed.midfielders
-                + parsed.forwards
-            ),
+            must=set(parsed.add),
         )
         new = transfers(
             pool=pool,
@@ -544,18 +539,20 @@ def main():
             )
 
     elif parsed.mode == "histogram":
-        pool = [p for p in gather.player_pool() if p.position in parsed.position]
+        xp = [p.xP for p in gather.player_pool() if p.position in parsed.position]
         print(
             histogram(
-                [p.xP for p in pool],
+                xp,
                 bins=20,
                 height=20,
                 width=80,
                 X_label="xp",
-                x_min=-2,
-                x_max=15,
+                x_min=min(xp) * 1.05,
+                x_max=max(xp) * 1.05,
             )
         )
+        print()
+        functions.summary(xp)
 
 
 if __name__ == "__main__":

@@ -92,3 +92,24 @@ def remove_bad(
             cutoff[pos] = min_xp
 
     return [p for p in pool if p.xP >= cutoff[p.position] or p.name in must]
+
+
+def summary(
+    samples: T.Sequence[float],
+    functions=(
+        statistics.fmean,
+        statistics.mean,
+        statistics.median_grouped,
+        statistics.median_high,
+        statistics.median_low,
+        statistics.median,
+        statistics.mode,
+        statistics.pstdev,
+        statistics.pvariance,
+        statistics.stdev,
+        statistics.variance,
+    ),
+) -> None:
+    rs = max(len(f.__name__) for f in functions)
+    for f in functions:
+        print(f"{f.__name__:<{rs}} : {round(f(samples),1):>2}")
