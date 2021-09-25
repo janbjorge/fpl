@@ -1,8 +1,8 @@
-# An FPL-picker
+# A FPL-picker
 
 ## Render a team:
 ```bash
-python3 -m core.picker lineup -mid Salah Fernandes -def Alexander-Arnold
+python3 -m core.picker lineup --mid Salah Fernandes --def Alexander-Arnold
 ```
 
 ## Suggest transfer
