@@ -1,0 +1,2 @@
+class Global:
+    verbose = False

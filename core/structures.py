@@ -36,3 +36,12 @@ class Player:
     cost: int
     points: int
     xP: float
+
+
+@dataclasses.dataclass(frozen=True)
+class TransferConstraints:
+    add: T.Tuple[str, ...]
+    remove: T.Tuple[str, ...]
+    ignore: T.Tuple[str, ...]
+    buget: int
+    max_transfers: int

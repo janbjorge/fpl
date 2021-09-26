@@ -11,13 +11,16 @@ import requests
 
 from core import (
     helpers,
-    structures,
+    settings,
     simulator,
+    structures,
 )
 
 
 @helpers.cache("bootstrap_static")
 def bootstrap_static(url="https://fantasy.premierleague.com/api/bootstrap-static/"):
+    if settings.Global.verbose:
+        print(f"bootstrap_static -> GET -> {url}")
     return requests.get(url).json()
 
 
@@ -26,6 +29,8 @@ def gameweek(
     round: int,
     url="https://fantasy.premierleague.com/api/fixtures/",
 ):
+    if settings.Global.verbose:
+        print(f"gameweek -> GET -> {url}")
     return requests.get(url, params={"event": round}).json()
 
 
@@ -60,9 +65,10 @@ def position(element_type_id):
 
 @helpers.cache("element_summary")
 def element_summary(element_id: int):
-    return requests.get(
-        f"https://fantasy.premierleague.com/api/element-summary/{element_id}/"
-    ).json()
+    url = f"https://fantasy.premierleague.com/api/element-summary/{element_id}/"
+    if settings.Global.verbose:
+        print(f"element_summary -> GET -> {url}")
+    return requests.get(url).json()
 
 
 def name_to_element_id(name: str) -> int:
@@ -173,10 +179,16 @@ def my_team(
                 "app": app,
             },
         )
-        _me = s.get("https://fantasy.premierleague.com/api/me/").json()
-        return s.get(
-            f"https://fantasy.premierleague.com/api/my-team/{_me['player']['entry']}/"
-        ).json()
+
+        url = "https://fantasy.premierleague.com/api/me/"
+        if settings.Global.verbose:
+            print(f"my_team -> GET -> {url}")
+        _me = s.get(url).json()
+
+        url = f"https://fantasy.premierleague.com/api/my-team/{_me['player']['entry']}/"
+        if settings.Global.verbose:
+            print(f"my_team -> GET -> {url}")
+        return s.get(url).json()
 
 
 def team():
@@ -214,17 +226,15 @@ def team():
 
 def refresh():
 
+    print(f"Invalidating: {helpers.CACHE_FOLDER}/")
     if helpers.CACHE_FOLDER.exists():
-        print(f"Clearing cache: {helpers.CACHE_FOLDER}")
         shutil.rmtree(helpers.CACHE_FOLDER)
-        print(f"Clearing cache: {helpers.CACHE_FOLDER} - done")
 
     # Run all the functions that do external calls.
-    print(f"Refreshing: {helpers.CACHE_FOLDER}")
-    with concurrent.futures.ThreadPoolExecutor(max_workers=32) as wp:
-        wp.map(element_summary, [e["id"] for e in bootstrap_static()["elements"]])
+    elements = bootstrap_static()["elements"]
+    with concurrent.futures.ThreadPoolExecutor(16) as wp:
+        wp.map(element_summary, (e["id"] for e in elements))
         wp.map(my_team)
-    print(f"Refreshing: {helpers.CACHE_FOLDER} - done")
 
     historic = (
         (
@@ -254,11 +264,10 @@ def refresh():
 
         *_, name = url.split("/")
         file = folder / name
-        print(f"{str(url):<{rs}} => {str(folder):>2}.csv")
+        if settings.Global.verbose:
+            print(f"{str(url):<{rs}} => {str(folder):>2}.csv")
         csv = pd.read_csv(url)
         csv.to_csv(file)
-
-    print("Refresh - done")
 
 
 def validate(

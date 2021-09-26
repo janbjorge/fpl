@@ -1,31 +1,27 @@
-from typing import (
-    Literal,
-    Sequence,
-    Set,
-)
-from collections import (
-    Counter,
+import collections as C
+import typing as T
+
+from core import (
+    structures,
 )
 
-from core.structures import Player
 
-
-def team_constraint(lineup: Sequence[Player], n=2):
-    count = Counter(p.team for p in lineup)
+def team_constraint(lineup: T.Sequence[structures.Player], n=2):
+    count = C.Counter(p.team for p in lineup)
     return max(count.values()) <= n
 
 
 def position_constraint(
-    lineup: Sequence[Player],
+    lineup: T.Sequence[structures.Player],
     n: int,
-    position: Literal["GKP", "DEF", "MID", "FWD"],
+    position: T.Literal["GKP", "DEF", "MID", "FWD"],
 ) -> bool:
-    count = Counter(p.team for p in lineup if p.position == position)
+    count = C.Counter(p.team for p in lineup if p.position == position)
     return max(count.values()) <= n
 
 
 def gkp_def_not_same_team(
-    lineup: Sequence[Player],
+    lineup: T.Sequence[structures.Player],
 ) -> bool:
     _gkps = set(p.team for p in lineup if p.position == "GKP")
     _defs = set(p.team for p in lineup if p.position == "DEF")
@@ -33,15 +29,15 @@ def gkp_def_not_same_team(
 
 
 def must_contain(
-    lineup: Sequence[Player],
-    must: Set[str],
+    lineup: T.Sequence[structures.Player],
+    must: T.Set[str],
 ) -> bool:
     if must and lineup:
         return must.issubset(set(p.name for p in lineup))
     return True
 
 
-def valid_formation(lineup: Sequence[Player]) -> bool:
+def valid_formation(lineup: T.Sequence[structures.Player]) -> bool:
 
     if sum(1 for p in lineup if p.position == "GKP") != 1:
         return False
@@ -53,3 +49,7 @@ def valid_formation(lineup: Sequence[Player]) -> bool:
         return False
 
     return True
+
+
+def unique(lineup: T.Sequence[structures.Player]) -> bool:
+    return len(set(p.name for p in lineup)) == len(lineup)

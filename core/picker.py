@@ -5,9 +5,11 @@ from plotille import (
 )
 
 from core import (
-    optimizers,
     functions,
     gather,
+    optimizers,
+    settings,
+    structures,
 )
 
 
@@ -150,6 +152,8 @@ def argument_parser():
 def main():
     parsed = argument_parser()
 
+    settings.Global.verbose = parsed.verbose
+
     if parsed.refresh:
         gather.refresh()
 
@@ -160,14 +164,16 @@ def main():
             parsed.expected_points,
             must=set(parsed.add),
         )
-        new = optimizers.transfers(
-            pool=pool,
+        new = optimizers.Transfer.solve(
             old=old,
-            max_transfers=parsed.max,
-            verbose=parsed.verbose,
-            add=parsed.add,
-            remove=parsed.remove,
-            ignore=parsed.ignore,
+            pool=pool,
+            tc=structures.TransferConstraints(
+                max_transfers=parsed.max,
+                add=parsed.add,
+                remove=parsed.remove,
+                ignore=parsed.ignore,
+                buget=functions.lineup_cost(old),
+            ),
         )
         functions.tprint(old, new)
 
@@ -185,7 +191,6 @@ def main():
         functions.sprint(
             optimizers.lineup(
                 pool=pool,
-                verbose=parsed.verbose,
                 buget=int(parsed.buget * 10),
                 ignore=parsed.ignore,
                 base=(

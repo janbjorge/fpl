@@ -13,10 +13,12 @@ def cache(postfix: str):
 
         folder = CACHE_FOLDER / postfix
 
-        @functools.lru_cache(maxsize=None)
+        @functools.lru_cache(maxsize=None, typed=False)
         def inner(*args, **kw):
+
             key = functools._make_key(args, kw, typed=False)
             cache = folder / f"{key}.json"
+
             if cache.exists():
                 with cache.open("r") as fd:
                     return json.load(fd)
@@ -28,6 +30,7 @@ def cache(postfix: str):
 
             with cache.open("w") as fd:
                 json.dump(rv, fd)
+
             return rv
 
         return inner

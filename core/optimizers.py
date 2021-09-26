@@ -11,13 +11,13 @@ from core import (
     exceptions,
     functions,
     gather,
+    settings,
     structures,
 )
 
 
 def lineup(
     pool: T.List[structures.Player],
-    verbose: bool = False,
     buget=1_000,
     ignore: T.Tuple[str, ...] = tuple(),
     base=(
@@ -146,7 +146,7 @@ def lineup(
     best_xp = sum((max_xp_gkp, max_xp_def, max_xp_mid, max_xp_fwd))
     step = len(mid_combinations) * len(fwd_combinations)
 
-    if verbose:
+    if settings.Global.verbose:
         print(f"{min_cost_mid=}, {min_cost_fwd=}, {min_cost_mid_fwd=}")
         print(f"{max_xp_mid=}, {max_xp_fwd=}, {max_xp_mid_fwd=}")
         print(f"{m_gkps=}, {m_defs=}, {m_mids=}, {m_fwds=}")
@@ -181,7 +181,7 @@ def lineup(
 
         best_xp = best_xp * 0.95
 
-        if verbose:
+        if settings.Global.verbose:
             print(f"best_xp={best_xp}")
 
         with tqdm(
@@ -203,104 +203,140 @@ def lineup(
                                     if lvl3(g3):
                                         best_xp = functions.lineup_xp(g3)
                                         best_lineup = g3
-                                        if verbose:
+                                        if settings.Global.verbose:
                                             print("-" * 100)
                                             functions.sprint(g3)
 
     return best_lineup
 
 
-def transfers(
-    pool: T.List[structures.Player],
-    old: T.List[structures.Player],
-    max_transfers: int,
-    verbose: bool = False,
-    add: T.Tuple[str, ...] = tuple(),
-    remove: T.Tuple[str, ...] = tuple(),
-    ignore: T.Tuple[str, ...] = tuple(),
-) -> T.List[structures.Player]:
+class Transfer:
 
-    old_lineup_cost = functions.lineup_cost(old)
-    pool = list(set(pool) - set(old))
+    _tprinted: T.Set[str] = set()
 
-    pool = sorted(pool, key=lambda p: p.xP, reverse=False)
-    old = sorted(old, key=lambda p: p.xP, reverse=False)
-
-    @functools.lru_cache(maxsize=len(pool) * len(old))
-    def tp(old, new):
-        functions.tprint(old, new)
-        print("-" * 100)
-
-    def valid_add(lineup: T.List[structures.Player]) -> bool:
+    @staticmethod
+    def valid_add(
+        lineup: T.List[structures.Player],
+        add: T.Tuple[str, ...],
+    ) -> bool:
         if not add:
             return True
         names = set(p.name for p in lineup)
         return all(a in names for a in add)
 
-    def valid_remove(lineup: T.List[structures.Player]) -> bool:
+    @staticmethod
+    def valid_remove(
+        lineup: T.List[structures.Player],
+        remove: T.Tuple[str, ...] = tuple(),
+    ) -> bool:
         if not remove:
             return True
         names = set(p.name for p in lineup)
         return all(r not in names for r in remove)
 
-    pool = [p for p in pool if p.name not in ignore]
+    @staticmethod
+    def _tprint(
+        old: T.List[structures.Player],
+        new: T.List[structures.Player],
+    ) -> None:
+        key = "".join(sorted(n.name for n in new))
+        if key in Transfer._tprinted:
+            return
+        Transfer._tprinted.add(key)
+        functions.tprint(old, new)
+        print("-" * 100)
 
-    for p in add:
-        if not any(l.name == p for l in pool):
-            print(f"Player '{p}' not in seclection pool.")
-
-    for p in remove:
-        if not any(l.name == p for l in old):
-            print(f"Player '{p}' not in current lineup.")
-
-    def _transfers(
+    @staticmethod
+    def _transfer(
         current: T.List[structures.Player],
         best: T.List[structures.Player],
-        n_transfers: int,
+        original: T.List[structures.Player],
+        pool: T.List[structures.Player],
+        tc: structures.TransferConstraints,
+        done_transfers: int,
     ) -> T.List[structures.Player]:
 
-        if n_transfers > max_transfers:
-            raise exceptions.InvalidLineup
-
-        if n_transfers == max_transfers:
+        if done_transfers == tc.max_transfers:
             if (
-                functions.lineup_cost(current) <= old_lineup_cost
-                and constraints.team_constraint(current)
+                functions.lineup_xp(current) > functions.lineup_xp(best)
+                and functions.lineup_cost(current) <= tc.buget
+                and constraints.team_constraint(current, n=3)
                 and constraints.gkp_def_not_same_team(current)
-                and functions.lineup_xp(current) > functions.lineup_xp(best)
-                and valid_add(current)
-                and valid_remove(current)
+                and constraints.unique(current)
+                and Transfer.valid_add(current, tc.add)
+                and Transfer.valid_remove(current, tc.remove)
             ):
                 return current
             raise exceptions.InvalidLineup
 
-        if n_transfers == 0:
+        if done_transfers > tc.max_transfers:
+            raise exceptions.InvalidLineup
+
+        if done_transfers == 0:
             _pool = tqdm(pool)
         else:
             _pool = pool
 
         for transfer_in in _pool:
-            for idx, transfer_out in enumerate(best):
+            for idx, _ in enumerate(best):
 
-                if transfer_in.position != transfer_out.position:
+                out = current[idx]
+
+                if transfer_in.name == out.name or transfer_in.position != out.position:
                     continue
 
-                # Transfer inn new player.
                 tmp = current.copy()
                 tmp[idx] = transfer_in
 
                 try:
-                    best = _transfers(tmp, best, n_transfers=n_transfers + 1)
+                    best = Transfer._transfer(
+                        current=tmp,
+                        best=best,
+                        pool=pool,
+                        original=original,
+                        tc=tc,
+                        done_transfers=done_transfers + 1,
+                    )
                 except exceptions.InvalidLineup:
                     continue
 
-                if verbose:
-                    if set(old) == set(best):
-                        continue
-                    tp(tuple(old), tuple(best))
+                if settings.Global.verbose:
+                    Transfer._tprint(original, best)
+
         return best
 
-    return _transfers(old, old, 0)
+    @staticmethod
+    def solve(
+        old: T.List[structures.Player],
+        pool: T.List[structures.Player],
+        tc: structures.TransferConstraints,
+    ) -> T.List[structures.Player]:
+
+        pool = list(set(pool) - set(old))
+        pool = sorted(pool, key=lambda p: p.xP, reverse=False)
+        old = sorted(old, key=lambda p: p.xP, reverse=False)
+        pool = [p for p in pool if p.name not in tc.ignore]
+
+        for p in tc.add:
+            if not any(l.name == p for l in pool):
+                print(f"Player '{p}' not in seclection pool.")
+
+        for p in tc.remove:
+            if not any(l.name == p for l in old):
+                print(f"Player '{p}' not in current lineup.")
+
+        try:
+            best = Transfer._transfer(
+                current=old,
+                best=old.copy(),
+                original=old.copy(),
+                pool=pool,
+                tc=tc,
+                done_transfers=0,
+            )
+        finally:
+            Transfer._tprinted.clear()
+        return best
 
 
 def gmw_lineup(
