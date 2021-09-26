@@ -1,3 +1,4 @@
+import collections
 import concurrent.futures
 import os
 import pathlib
@@ -10,21 +11,22 @@ import pandas as pd
 import requests
 
 from core import (
-    helpers,
+    cache,
+    functions,
     settings,
     simulator,
     structures,
 )
 
 
-@helpers.cache("bootstrap_static")
+@cache.file("bootstrap_static")
 def bootstrap_static(url="https://fantasy.premierleague.com/api/bootstrap-static/"):
     if settings.Global.verbose:
         print(f"bootstrap_static -> GET -> {url}")
     return requests.get(url).json()
 
 
-@helpers.cache("gameweek")
+@cache.file("gameweek")
 def gameweek(
     round: int,
     url="https://fantasy.premierleague.com/api/fixtures/",
@@ -63,7 +65,7 @@ def position(element_type_id):
             return element_type["singular_name_short"]
 
 
-@helpers.cache("element_summary")
+@cache.file("element_summary")
 def element_summary(element_id: int):
     url = f"https://fantasy.premierleague.com/api/element-summary/{element_id}/"
     if settings.Global.verbose:
@@ -78,31 +80,28 @@ def name_to_element_id(name: str) -> int:
     raise KeyError
 
 
+def fullname_to_web_name(full: str) -> T.Optional[str]:
+    for element in bootstrap_static()["elements"]:
+        if element["web_name"] in full:
+            return element["web_name"]
+    return None
+
+
 def history(
     player: str,
     folder=pathlib.Path("data"),
 ) -> T.Generator[pd.Series, None, None]:
 
-    # Data from session 2019/2020, 2020/2021 and 2021/2022
+    # Data from 2020/2021 and 2021/2022
     for fold in sorted(folder.glob("*_*/"), reverse=True):
 
-        merged = helpers.teams_gw_merge(
+        merged = functions.teams_gw_merge(
             fold / "teams.csv",
             fold / "merged_gw.csv",
         )
 
-        try:
-            player_gws = merged[merged.name_x.str.contains(player, case=False)]
-        except re.error:
-            # Unable to match any rows on `player` due to wired characters.
-            # TODO: Ensure unicode?
-            return
-
-        if player_gws.empty:
-            return
-
-        for _, row in player_gws.iterrows():
-            yield row
+        mactch = merged.loc[merged["web_name"] == player]
+        yield from mactch.itertuples()
 
 
 def next_n(
@@ -162,7 +161,7 @@ def player_pool() -> T.List[structures.Player]:
     ]
 
 
-@helpers.cache("my_team")
+@cache.file("my_team")
 def my_team(
     login="https://users.premierleague.com/accounts/login/",
     redirect_uri="https://fantasy.premierleague.com/a/login",
@@ -226,9 +225,9 @@ def team():
 
 def refresh():
 
-    print(f"Invalidating: {helpers.CACHE_FOLDER}/")
-    if helpers.CACHE_FOLDER.exists():
-        shutil.rmtree(helpers.CACHE_FOLDER)
+    print(f"Invalidating: {cache.CACHE_FOLDER}/")
+    if cache.CACHE_FOLDER.exists():
+        shutil.rmtree(cache.CACHE_FOLDER)
 
     # Run all the functions that do external calls.
     elements = bootstrap_static()["elements"]

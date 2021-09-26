@@ -1,5 +1,10 @@
+import functools
+import json
+import pathlib
 import statistics
 import typing as T
+
+import pandas as pd
 
 from core import (
     gather,
@@ -113,3 +118,25 @@ def summary(
     rs = max(len(f.__name__) for f in functions)
     for f in functions:
         print(f"{f.__name__:<{rs}} : {round(f(samples),1):>2}")
+
+
+@functools.lru_cache(maxsize=None)
+def cached_csv_read(path: pathlib.Path) -> pd.DataFrame:
+    return pd.read_csv(path)
+
+
+@functools.lru_cache(maxsize=None)
+def teams_gw_merge(
+    teams: pathlib.Path,
+    gw: pathlib.Path,
+) -> pd.DataFrame:
+
+    _teams = cached_csv_read(teams)
+    _gw = cached_csv_read(gw)
+
+    merged = _gw.merge(_teams, left_on="opponent_team", right_on="id")
+    merged.sort_values("GW", inplace=True, ascending=False)
+    merged["web_name"] = merged.name_x.apply(gather.fullname_to_web_name)
+    merged = merged[merged["web_name"].notna()]
+    merged.reset_index(inplace=True)
+    return merged

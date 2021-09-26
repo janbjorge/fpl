@@ -1,14 +1,12 @@
+
 import functools
 import json
 import pathlib
 
-import pandas as pd
-
-
 CACHE_FOLDER = pathlib.Path("./.cache/")
 
 
-def cache(postfix: str):
+def file(postfix: str):
     def outer(f):
 
         folder = CACHE_FOLDER / postfix
@@ -36,21 +34,3 @@ def cache(postfix: str):
         return inner
 
     return outer
-
-
-@functools.lru_cache(maxsize=None)
-def cached_csv_read(path: pathlib.Path) -> pd.DataFrame:
-    return pd.read_csv(path)
-
-
-@functools.lru_cache(maxsize=None)
-def teams_gw_merge(
-    teams: pathlib.Path,
-    gw: pathlib.Path,
-) -> pd.DataFrame:
-    _teams = cached_csv_read(teams)
-    _gw = cached_csv_read(gw)
-    merged = _gw.merge(_teams, left_on="opponent_team", right_on="id")
-    merged.sort_values("GW", inplace=True, ascending=False)
-    merged.reset_index(inplace=True)
-    return merged

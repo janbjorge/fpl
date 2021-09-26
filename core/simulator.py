@@ -33,9 +33,7 @@ def performed(
                 home=bool(row.was_home),
             )
 
-        tp = int(row.total_points)
-
-        historical.append((tp, s))
+        historical.append((int(row.total_points), s))
 
     historical.reverse()
     historical = historical[-window * window :]
