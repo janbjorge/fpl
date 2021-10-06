@@ -1,0 +1,42 @@
+<html>
+<body>
+    <h2>This weeks best lineup best on xP.</h2>
+
+    <h3>Goalkeeper</h3>
+    <ul>
+        {% for player in players %}
+            {% if player.position == "GKP" %}
+                <li>{{ player.name }} - {{player.xP}} [xP]</li>
+            {% endif %}
+        {% endfor %}
+    </ul>
+
+    <h3>Defenders</h3>
+    <ul>
+        {% for player in players %}
+            {% if player.position == "DEF" %}
+                <li>{{ player.name }} - {{player.xP}} [xP]</li>
+            {% endif %}
+        {% endfor %}
+    </ul>
+
+    <h3>Midfielders</h3>
+    <ul>
+        {% for player in players %}
+            {% if player.position == "MID" %}
+                <li>{{ player.name }} - {{player.xP}} [xP]</li>
+            {% endif %}
+        {% endfor %}
+    </ul>
+
+    <h3>Forwarders</h3>
+    <ul>
+        {% for player in players %}
+            {% if player.position == "FWD" %}
+                <li>{{ player.name }} - {{player.xP}} [xP]</li>
+            {% endif %}
+        {% endfor %}
+    </ul>
+
+</body>
+</html>

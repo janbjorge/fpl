@@ -1,8 +1,7 @@
-import collections
 import concurrent.futures
 import os
 import pathlib
-import re
+import functools
 import shutil
 import typing as T
 
@@ -140,6 +139,7 @@ def strength_next_n(
     return tuple(_strength(*opponent) for opponent in next_n(player=player, n=n))
 
 
+@functools.cache
 def player_pool() -> T.List[structures.Player]:
 
     pool_pd = pd.DataFrame.from_dict(bootstrap_static()["elements"])
@@ -190,13 +190,20 @@ def my_team(
         return s.get(url).json()
 
 
-def team():
+def team(_id = None):
+
     def element(_id, key):
         for element in bootstrap_static()["elements"]:
             if element["id"] == _id:
                 return element[key]
 
-    picks = pd.DataFrame.from_dict(my_team()["picks"])
+    if _id is None:
+        picks = pd.DataFrame.from_dict(my_team()["picks"])
+    else:
+        print(f"https://fantasy.premierleague.com/api/entry/{_id}/event/{current_gameweek()-1}/picks/")
+        picks = pd.DataFrame.from_dict(
+            requests.get(f"https://fantasy.premierleague.com/api/entry/{_id}/event/{current_gameweek()-1}/picks/").json()["picks"]
+        )
 
     picks["minutes"] = picks.element.apply(lambda r: element(r, "minutes")).apply(float)
     picks["now_cost"] = picks.element.apply(lambda r: element(r, "now_cost"))

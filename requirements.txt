@@ -1,3 +1,6 @@
+aiofiles
+fastapi
+jinja2
 numpy
 pandas
 plotille
@@ -5,3 +8,5 @@ requests
 tqdm
 types-python-dateutil
 types-requests
+uvicorn
+uvloop
